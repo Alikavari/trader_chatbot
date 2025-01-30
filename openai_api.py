@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
 from dotenv import load_dotenv
+from jinja2 import ChoiceLoader
 from pydantic import BaseModel
 from typing import List, Optional, AsyncGenerator
 import uuid
@@ -40,36 +41,36 @@ class GptModelResponseFormat(BaseModel):
     data: list[GptModelDescriptor]
 
 
-# Request and response models
+# Request models
 class Message(BaseModel):
     role: str
     content: str
 
 
-# ---------
 class ChatRequest(BaseModel):
     model: str
     messages: List[Message]
-    temperature: Optional[float] = 1.0
-    max_tokens: Optional[int] = 256
-    stream: Optional[bool] = False
+    temperature: float = 1.0
+    max_tokens: int = 256
+    stream: bool = False
 
 
-class Choice(TypedDict):
-    index: int
-    delta: dict
-    logprobs: Dict | None
-    finish_reason: str | None
+# Response Models
+class Choice(BaseModel):
+    index: int = 0
+    delta: dict = {}
+    logprobs: Dict | None = None
+    finish_reason: str | None = None
 
 
-class ChatCompletionChunk(TypedDict):
+class ChatCompletionChunk(BaseModel):
     id: str
-    object: str
+    object: str = "chat.completion.chunk"
     created: int
     model: str
-    provider: str
-    service_tier: str
-    system_fingerprint: str
+    provider: str = "provider_name"
+    service_tier: str = "default"
+    system_fingerprint: str = "null"
     choices: List[Choice]
 
 
@@ -88,46 +89,23 @@ async def generate_stream_response(
 
     # Stream chunks (simulating token generation)
     for i, word in enumerate(words):
-        chunk: ChatCompletionChunk = {
-            "id": unique_id,
-            "object": "chat.completion.chunk",
-            "created": timestamp,
-            "model": model_name,
-            "provider": provider_name,
-            "service_tier": "default",
-            "system_fingerprint": "null",
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {"content": "Hi "},
-                    "finish_reason": None,  # Finish reason will be null initially
-                    "logprobs": None,  # No logprobs for now
-                }
-            ],
-        }
-
-        yield f"data: {json.dumps(chunk)}\n\n"  # SSE format
+        chunk = ChatCompletionChunk(
+            id=unique_id,
+            created=timestamp,
+            model=model_name,
+            choices=[Choice(delta={"content": "Hi "})],
+        )
+        yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
         await asyncio.sleep(0.2)  # Simulated delay for token streaming
 
     # Send the final empty chunk with stop finish reason
-    chunk: ChatCompletionChunk = {
-        "id": unique_id,
-        "object": "chat.completion.chunk",
-        "created": timestamp,
-        "model": model_name,
-        "provider": provider_name,
-        "service_tier": "default",
-        "system_fingerprint": "null",
-        "choices": [
-            {
-                "index": 0,
-                "delta": {},
-                "finish_reason": None,  # Finish reason will be null initially
-                "logprobs": None,  # No logprobs for now
-            }
-        ],
-    }
-    yield f"data: {json.dumps(chunk)}\n\n"
+    chunk = ChatCompletionChunk(
+        id=unique_id,
+        created=timestamp,
+        model=model_name,
+        choices=[Choice(finish_reason="stop")],
+    )
+    yield f"data: {chunk.model_dump_json()}\n\n"
 
     # Send the final [DONE] message to signal the end of the stream
     yield "data: [DONE]\n\n"
@@ -136,12 +114,13 @@ async def generate_stream_response(
 # Chat completions endpoint
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatRequest):
-    print("the request value", request)
+    print("model:", request.model)
+    print("stream:", request.stream)
     if request.stream:
         # Handle streaming response
         async def stream_response():
             async for chunk in generate_stream_response(
-                request.messages, request.temperature, request.max_tokens
+                request, request.temperature, request.max_tokens
             ):
                 yield chunk
 
