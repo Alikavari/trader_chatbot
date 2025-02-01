@@ -1,10 +1,12 @@
 from typing import Dict
-from fastapi import FastAPI, HTTPException
+from click import Choice
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 from dotenv import load_dotenv
 from jinja2 import ChoiceLoader
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from typing import List, Optional, AsyncGenerator
 import uuid
@@ -13,11 +15,44 @@ import json
 import asyncio
 import os
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam  # Import correct type
+from openai.types.chat import ChatCompletionMessageParam
+from regex import FULLCASE
+
+from extractors import (
+    TradeInfo,
+    amount_extractor,
+    crypto_extractor,
+    exchange_extractor,
+    trade_extractor,
+)
+from openai_structs import (
+    ChatCompletionChunk,
+    ChatCompletionResponse,
+    NormalChoice,
+    StreamChoice,
+    Message,
+    GptModelDescriptor,
+    GptModelResponseFormat,
+    ChatRequest,
+)  # Import correct type
 
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+state = ["None"]
+
+
+class TradeInfoType(BaseModel):
+    is_trading_related: bool = False
+    action: str | None = None
+    coin: str | None = None
+    amount: float | None = None
+    exchange: str | None = None
+
+
+global_json_list: list[TradeInfoType] = [TradeInfoType()]
 
 
 client = AsyncOpenAI()  # Replace with your actual API key
@@ -35,82 +70,66 @@ app.add_middleware(
 from typing import Any, List, TypedDict, cast
 
 
-class GptModelDescriptor(BaseModel):
-    id: str
-    object: str
-    created: int
-    owned_by: str
+def generte_response() -> str:
+    if global_json_list[0].is_trading_related == False:
+        return (
+            "I am an LLM model designed exclusively to handle crypto trading commands."
+        )
+    elif global_json_list[0].coin == None:
+        state[0] = "coin"
+        return "Please enter crypto name."
+    elif global_json_list[0].amount == None:
+        state[0] = "amount"
+        return "Please enter the amount of crypto."
+    elif global_json_list[0].exchange == None:
+        state[0] = "exchange"
+        return "Please enter the Exchange name."
+    else:
+        return global_json_list[0].model_dump_json(exclude={"is_trading_related"})
 
 
-class GptModelResponseFormat(BaseModel):
-    object: str
-    data: list[GptModelDescriptor]
-
-
-# Request models
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class ChatRequest(BaseModel):
-    model: str
-    messages: List[Message]
-    temperature: float = 1.0
-    max_tokens: int = 256
-    stream: bool = True
-
-
-# Response Models
-class Choice(BaseModel):
-    index: int = 0
-    delta: dict = {}
-    logprobs: None = None
-    finish_reason: str | None = None
-
-
-class ChatCompletionChunk(BaseModel):
-    id: str
-    object: str = "chat.completion.chunk"
-    created: int
-    model: str
-    provider: str = "provider_name"
-    service_tier: str = "default"
-    system_fingerprint: str = "fp_72ed7ab54c"
-    choices: List[Choice]
+async def call_models(llm, msg):
+    if state[0] == "None":
+        model_response = await trade_extractor(llm, msg)
+        global_json_list[0] = TradeInfoType(**model_response)
+        # print(global_json_list[0])
+    elif state[0] == "coin":
+        coin = await crypto_extractor(llm, msg)
+        global_json_list[0].coin = coin["coin"]
+    elif state[0] == "amount":
+        amount = await amount_extractor(llm, msg)
+        global_json_list[0].amount = amount["amount"]
+    elif state[0] == "exchange":
+        exchange_name = await exchange_extractor(llm, msg)
+        global_json_list[0].exchange = exchange_name["exchange"]
+    state[0] = "None"
 
 
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
-    messages: List[Message], model: str
+    messages: List[Message], model_name: str
 ) -> AsyncGenerator[str, None]:
+    print(state)
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
-
-    chat_messages = [
-        cast(ChatCompletionMessageParam, msg.model_dump()) for msg in messages
-    ]
-    stream = await client.chat.completions.create(
-        model=model, messages=chat_messages, stream=True  # Enable streaming
+    last_msg = messages[-1].content
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    await call_models(llm, last_msg)
+    content = generte_response()
+    chunk = ChatCompletionChunk(
+        id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
+        created=timestamp,
+        model=model_name,
+        choices=[StreamChoice(delta={"content": f"{content} "})],
     )
-    # Stream chunks (simulating token generation)
-    async for chunk in stream:
-        if chunk.choices[0].delta.content:
-            content = chunk.choices[0].delta.content
-            chunk = ChatCompletionChunk(
-                id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
-                created=timestamp,
-                model=model,
-                choices=[Choice(delta={"content": f"{content} "})],
-            )
-            yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
+    yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 
     # Send the final empty chunk with stop finish reason
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
-        model=model,
-        choices=[Choice(finish_reason="stop")],
+        model=model_name,
+        choices=[StreamChoice(finish_reason="stop")],
     )
     yield f"data: {chunk.model_dump_json()}\n\n"
 
@@ -120,10 +139,10 @@ async def generate_stream_response(
 
 # Chat completions endpoint
 @app.post("/v1/chat/completions")
-async def chat_completions(request: ChatRequest):
-    print("model:", request.model)
-    print("messages:", request.messages)
-    if request.stream:
+async def chat_completions(
+    request: ChatRequest,
+) -> Response:
+    if request.stream == True:  # if clinet needs stream response
         # Handle streaming response
         async def stream_response():
             async for chunk in generate_stream_response(
@@ -133,11 +152,21 @@ async def chat_completions(request: ChatRequest):
                 yield chunk
 
         return StreamingResponse(stream_response(), media_type="text/event-stream")
-    else:
-        # Handle non-streaming response (optional)
-        raise HTTPException(
-            status_code=400, detail="Non-streaming mode not supported in this example."
+    else:  # if clinet needs non-stream response
+        normal_response = ChatCompletionResponse(
+            id="chatcmpl-AwC6ciPHpVBcw6Iy89FWSil7RRssE",
+            created=int(time.time()),
+            model="gpt-4o",
+            choices=[
+                NormalChoice(
+                    message=Message(
+                        role="assistant", content="The Cryptocurrency Exchanger ChatBot"
+                    )
+                )
+            ],
+            system_fingerprint="some_finger",
         )
+        return JSONResponse(normal_response.model_dump())
 
 
 async def get_open_ai_models(

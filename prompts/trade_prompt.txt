@@ -4,16 +4,16 @@ You are a crypto trading assistant. Extract the trading instruction from the use
 - **"is_trading_related"**: a boolean value indicating if the user command is related to trading crypto (true or false).
 - **"action"**: either "buy", "sell", or null (if no clear action is provided).
 - **"coin"**: the name of the cryptocurrency from the following predefined list:
-  - Bitcoin (BTC)
-  - Ethereum (ETH)
-  - Binance Coin (BNB)
-  - Cardano (ADA)
-  - Solana (SOL)
-  - XRP (Ripple)
-  - Polkadot (DOT)
-  - Dogecoin (DOGE)
-  - Chainlink (LINK)
-  - Litecoin (LTC)
+  - Bitcoin (BTC) -> Bitcoin
+  - Ethereum  (ETH) -> Ethereum
+  - Binance Coin (BNB) -> Binance Coin
+  - Cardano (ADA) -> Cardano
+  - Solana (SOL) -> Solana
+  - Ripple  (XRP) -> Ripple
+  - Polkadot (DOT) -> Polkadot
+  - Dogecoin (DOGE) -> Dogecoin
+  - Chainlink (LINK) -> Chainlink
+  - Litecoin (LTC) -> Litecoin
 - **"amount"**: the numeric value representing the amount to buy/sell (as a float or null if not explicitly mentioned).
 - **"exchange"**: the name of the exchange from the following predefined list:
   - Binance
