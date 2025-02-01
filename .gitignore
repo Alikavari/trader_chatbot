@@ -1,0 +1,12 @@
+__pycache__/
+.vscode/
+myenv/
+.env
+fapi_server.py
+index.html
+openai_api (Copy).py
+openai_server.py 
+socket_server.py 
+warmup.py
+warmup2.py
+warmup.ipynb

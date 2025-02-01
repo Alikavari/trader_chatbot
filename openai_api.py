@@ -12,10 +12,17 @@ import time
 import json
 import asyncio
 import os
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam  # Import correct type
 
-app = FastAPI()
+
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+client = AsyncOpenAI()  # Replace with your actual API key
+app = FastAPI()
+
 # CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
@@ -25,8 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from ctypes import cast
-from typing import Any, List, TypedDict
+from typing import Any, List, TypedDict, cast
 
 
 class GptModelDescriptor(BaseModel):
@@ -52,14 +58,14 @@ class ChatRequest(BaseModel):
     messages: List[Message]
     temperature: float = 1.0
     max_tokens: int = 256
-    stream: bool = False
+    stream: bool = True
 
 
 # Response Models
 class Choice(BaseModel):
     index: int = 0
     delta: dict = {}
-    logprobs: Dict | None = None
+    logprobs: None = None
     finish_reason: str | None = None
 
 
@@ -70,39 +76,40 @@ class ChatCompletionChunk(BaseModel):
     model: str
     provider: str = "provider_name"
     service_tier: str = "default"
-    system_fingerprint: str = "null"
+    system_fingerprint: str = "fp_72ed7ab54c"
     choices: List[Choice]
 
 
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
-    messages, temperature, max_tokens
+    messages: List[Message], model: str
 ) -> AsyncGenerator[str, None]:
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
-    model_name = "meta-llama/llama-3.2-3b-instruct"  # Replace with your model name
-    provider_name = "provider_name"  # Replace with your provider name
 
-    # Simulate token generation from the last message
-    user_message = messages[-1].content
-    words = user_message.split()  # Simulating splitting into tokens
-
+    chat_messages = [
+        cast(ChatCompletionMessageParam, msg.model_dump()) for msg in messages
+    ]
+    stream = await client.chat.completions.create(
+        model=model, messages=chat_messages, stream=True  # Enable streaming
+    )
     # Stream chunks (simulating token generation)
-    for i, word in enumerate(words):
-        chunk = ChatCompletionChunk(
-            id=unique_id,
-            created=timestamp,
-            model=model_name,
-            choices=[Choice(delta={"content": "Hi "})],
-        )
-        yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
-        await asyncio.sleep(0.2)  # Simulated delay for token streaming
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            content = chunk.choices[0].delta.content
+            chunk = ChatCompletionChunk(
+                id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
+                created=timestamp,
+                model=model,
+                choices=[Choice(delta={"content": f"{content} "})],
+            )
+            yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 
     # Send the final empty chunk with stop finish reason
     chunk = ChatCompletionChunk(
-        id=unique_id,
+        id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
-        model=model_name,
+        model=model,
         choices=[Choice(finish_reason="stop")],
     )
     yield f"data: {chunk.model_dump_json()}\n\n"
@@ -115,12 +122,13 @@ async def generate_stream_response(
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatRequest):
     print("model:", request.model)
-    print("stream:", request.stream)
+    print("messages:", request.messages)
     if request.stream:
         # Handle streaming response
         async def stream_response():
             async for chunk in generate_stream_response(
-                request, request.temperature, request.max_tokens
+                request.messages,
+                request.model,
             ):
                 yield chunk
 

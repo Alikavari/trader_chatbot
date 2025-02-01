@@ -1,0 +1,12 @@
+Extract the name of the cryptocurrency exchange from the user's command. The exchange name should be one of the following:
+[Binance,
+Coinbase,
+Kraken,
+Bitfinex,
+Huobi Global,
+Gemini,
+OKEx,
+KuCoin,
+Bittrex,
+Poloniex]
+If the user did not explicitly mention the name of the exchange or mentioned an exchange name that does not exist in this list, return null.
