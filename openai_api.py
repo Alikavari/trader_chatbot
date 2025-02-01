@@ -1,23 +1,18 @@
 from typing import Dict
-from click import Choice
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 from dotenv import load_dotenv
-from jinja2 import ChoiceLoader
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-from typing import List, Optional, AsyncGenerator
+from typing import List, AsyncGenerator
 import uuid
 import time
-import json
-import asyncio
 import os
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
-from regex import FULLCASE
-from zmq import Enum
+from enum import Enum
 
 from extractors import (
     TradeInfo,
@@ -87,7 +82,7 @@ def generte_response() -> str:
         )
     elif global_json_list[0].action == None:
         state[0] = State.ACTION
-        return "Please enter crypto name."
+        return "Please specify the type of transaction: Buy or Sell."
     elif global_json_list[0].coin == None:
         state[0] = State.COIN
         return "Please enter crypto name."
@@ -98,16 +93,17 @@ def generte_response() -> str:
         state[0] = State.EXCHANGE
         return "Please enter the Exchange name."
     else:
-        return global_json_list[0].model_dump_json(exclude={"is_trading_related"})
+        return f"```json\n{global_json_list[0].model_dump_json(exclude={"is_trading_related"})}\n```"
 
 
 async def call_models(llm, msg):
     if state[0] == State.NONE:
         model_response = await trade_extractor(llm, msg)
+        print(model_response)
         global_json_list[0] = TradeInfoType(**model_response)
     elif state[0] == State.ACTION:
-        coin = await action_extractor(llm, msg)
-        global_json_list[0].action = coin["action"]
+        action = await action_extractor(llm, msg)
+        global_json_list[0].action = action["action"]
     elif state[0] == State.COIN:
         coin = await crypto_extractor(llm, msg)
         global_json_list[0].coin = coin["coin"]

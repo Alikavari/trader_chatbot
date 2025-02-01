@@ -1,18 +1,19 @@
-Extract the name of the cryptocurrency from the user's command. 
-If the user did not explicitly mention the cryptocurrency or the cryptocurrency is not in the following list:
-[Bitcoin (BTC),
-Ethereum (ETH),
-Binance Coin (BNB),
-Cardano (ADA),
-Solana (SOL),
-XRP (Ripple),
-Polkadot (DOT),
-Dogecoin (DOGE),
-Chainlink (LINK),
-Litecoin (LTC)]
-return null."
+you should extract the name of cryptocurrncy from user command 
+the name of the cryptocurrency from the following predefined list. The user may mention the cryptocurrency using its **full name ex Bicoin** or **abbreviation ex BTC**, but you must output the **full name** in the `"coin"` value:
 
+  - Bitcoin  (BTC)
+  - Ethereum (ETH)
+  - Binance Coin (BNB)
+  - Cardano  (ADA)
+  - Solana (SOL)
+  - Ripple (Ripple)
+  - Polkadot (DOT)
+  - Dogecoin (DOGE)
+  - Chainlink (LINK)
+  - Litecoin  (LTC)
 
+The user may mention the cryptocurrency using its **full name ex Bicoin** or **abbreviation ex BTC**, but you must output the **full name** in the `"coin"` value:
+if the name of exchange did not exist in the list return null.
 
 
 

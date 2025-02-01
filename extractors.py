@@ -96,7 +96,7 @@ async def exchange_extractor(model: BaseChatModel, user_msg: str) -> ExchangeInf
 
 
 async def action_extractor(model: BaseChatModel, user_msg: str) -> ActionInfo:
-    system = read_prompt("./prompts/exchange_prompt.txt")
+    system = read_prompt("./prompts/action_prompt.txt")
     bitcoin_exchange_struct = await structured_model(
         model, ActionInfo, system, user_msg
     )
