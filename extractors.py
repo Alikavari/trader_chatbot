@@ -33,7 +33,11 @@ class AmountInfo(LlmOutputStruct):
 
 
 class ExchangeInfo(LlmOutputStruct):
-    exchange: Annotated[str, "The name of the exchange"]
+    exchange: Annotated[str | None, "The name of the exchange"]
+
+
+class ActionInfo(LlmOutputStruct):
+    action: Annotated[str | None, "The action 'buy','sell' or null"]
 
 
 def read_prompt(file_name: str):
@@ -91,11 +95,9 @@ async def exchange_extractor(model: BaseChatModel, user_msg: str) -> ExchangeInf
     return cast(ExchangeInfo, bitcoin_exchange_struct)
 
 
-if __name__ == "__main__":
-
-    async def main_func():
-        model = ChatOpenAI(model="gpt-4o-mini")
-        output = await amount_extractor(model, "0.002")
-        print(json.dumps(output, indent=4, sort_keys=True))
-
-    asyncio.run(main_func())
+async def action_extractor(model: BaseChatModel, user_msg: str) -> ActionInfo:
+    system = read_prompt("./prompts/exchange_prompt.txt")
+    bitcoin_exchange_struct = await structured_model(
+        model, ActionInfo, system, user_msg
+    )
+    return cast(ActionInfo, bitcoin_exchange_struct)

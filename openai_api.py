@@ -17,9 +17,11 @@ import os
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from regex import FULLCASE
+from zmq import Enum
 
 from extractors import (
     TradeInfo,
+    action_extractor,
     amount_extractor,
     crypto_extractor,
     exchange_extractor,
@@ -41,9 +43,6 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
-state = ["None"]
-
-
 class TradeInfoType(BaseModel):
     is_trading_related: bool = False
     action: str | None = None
@@ -51,6 +50,17 @@ class TradeInfoType(BaseModel):
     amount: float | None = None
     exchange: str | None = None
 
+
+class State(Enum):
+    ACTION = "action"
+    COIN = "coin"
+    AMOUNT = "amount"
+    EXCHANGE = "exchange"
+    NONE = "none"
+
+
+# global variable
+state = [State.NONE]
 
 global_json_list: list[TradeInfoType] = [TradeInfoType()]
 
@@ -75,41 +85,45 @@ def generte_response() -> str:
         return (
             "I am an LLM model designed exclusively to handle crypto trading commands."
         )
+    elif global_json_list[0].action == None:
+        state[0] = State.ACTION
+        return "Please enter crypto name."
     elif global_json_list[0].coin == None:
-        state[0] = "coin"
+        state[0] = State.COIN
         return "Please enter crypto name."
     elif global_json_list[0].amount == None:
-        state[0] = "amount"
+        state[0] = State.AMOUNT
         return "Please enter the amount of crypto."
     elif global_json_list[0].exchange == None:
-        state[0] = "exchange"
+        state[0] = State.EXCHANGE
         return "Please enter the Exchange name."
     else:
         return global_json_list[0].model_dump_json(exclude={"is_trading_related"})
 
 
 async def call_models(llm, msg):
-    if state[0] == "None":
+    if state[0] == State.NONE:
         model_response = await trade_extractor(llm, msg)
         global_json_list[0] = TradeInfoType(**model_response)
-        # print(global_json_list[0])
-    elif state[0] == "coin":
+    elif state[0] == State.ACTION:
+        coin = await action_extractor(llm, msg)
+        global_json_list[0].action = coin["action"]
+    elif state[0] == State.COIN:
         coin = await crypto_extractor(llm, msg)
         global_json_list[0].coin = coin["coin"]
-    elif state[0] == "amount":
+    elif state[0] == State.AMOUNT:
         amount = await amount_extractor(llm, msg)
         global_json_list[0].amount = amount["amount"]
-    elif state[0] == "exchange":
+    elif state[0] == State.EXCHANGE:
         exchange_name = await exchange_extractor(llm, msg)
         global_json_list[0].exchange = exchange_name["exchange"]
-    state[0] = "None"
+    state[0] = State.NONE
 
 
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
     messages: List[Message], model_name: str
 ) -> AsyncGenerator[str, None]:
-    print(state)
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
     last_msg = messages[-1].content
