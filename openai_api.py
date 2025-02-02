@@ -170,7 +170,7 @@ async def chat_completions(
             choices=[
                 NormalChoice(
                     message=Message(
-                        role="assistant", content="The Cryptocurrency Exchanger ChatBot"
+                        role="assistant", content="The Cryptocurrency trading ChatBot"
                     )
                 )
             ],
