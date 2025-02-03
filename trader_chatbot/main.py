@@ -1,4 +1,3 @@
-from typing import Dict
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -13,8 +12,9 @@ import os
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from enum import Enum
+import uvicorn
 
-from extractors import (
+from trader_chatbot.extractors import (
     TradeInfo,
     action_extractor,
     amount_extractor,
@@ -22,7 +22,7 @@ from extractors import (
     exchange_extractor,
     trade_extractor,
 )
-from openai_structs import (
+from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
     ChatCompletionResponse,
     NormalChoice,

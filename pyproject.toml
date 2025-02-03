@@ -1,0 +1,30 @@
+[project]
+name            = "trader-chatbot"
+version         = "0.1.0"
+readme          = "README.md"
+requires-python = ">=3.12"
+url             = "https://github.com/Alikavari/trader_chatbot"
+dependencies    = [
+    "langchain-openai>=0.3.3",
+    "openai>=1.61.0",
+    "python-dotenv>=1.0.1",
+    "fastapi[standard]>=0.115.8",
+]
+
+[tool.rye.scripts]
+dev = "fastapi dev trader_chatbot/main.py"
+main = "fastapi run trader_chatbot/main.py"
+
+[build-system]
+requires = ["hatchling", "wheel"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["trader_chatbot"]
