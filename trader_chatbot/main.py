@@ -4,56 +4,57 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
-from typing import AsyncGenerator
+from langchain_ollama import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
+
+from typing import List, AsyncGenerator
 import uuid
 import time
 import os
-from openai import AsyncOpenAI
-from enum import Enum
+from openai import AsyncOpenAI, BaseModel
+from openai.types.chat import ChatCompletionMessageParam
+from typing import Any, List, TypedDict, cast
 
-from trader_chatbot.extractors import (
-    action_extractor,
-    amount_extractor,
-    crypto_extractor,
-    exchange_extractor,
-    trade_extractor,
-)
+
+from chatbot import ChatBot, StructChatModel
+
 from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
     ChatCompletionResponse,
     NormalChoice,
     StreamChoice,
     Message,
+    GptModelDescriptor,
     GptModelResponseFormat,
     ChatRequest,
 )  # Import correct type
 
-###
+HIGHLIGHT = "\033[1;43m"  # Yellow background with bold text
+RESET = "\033[0m"
 
+TAB = """<button>Click Me</button>"""
+
+
+class TradeInfo(TypedDict):
+    coin: str
+    action: str
+    amount: float
+    exchange: str
+
+
+models_dict: dict[str, BaseChatModel] = {
+    "gpt-40-mini": ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    "gpt-40": ChatOpenAI(model="gpt-4o", temperature=0),
+    "qwen2.5-coder": ChatOllama(model="qwen2.5-coder", temperature=0),
+}
+
+
+LLMOutputType = tuple[str, None | TradeInfo]
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+os.environ["htttp_proxy"] = "127.0.0.1:2081"
+os.environ["htttps_proxy"] = "127.0.0.1:2081"
 
-class TradeInfoType(BaseModel):
-    is_trading_related: bool = False
-    action: str | None = None
-    coin: str | None = None
-    amount: float | None = None
-    exchange: str | None = None
-
-class State(Enum):
-    ACTION = "action"
-    COIN = "coin"
-    AMOUNT = "amount"
-    EXCHANGE = "exchange"
-    NONE = "none"
-
-# global variable
-state = [State.NONE]
-
-global_json_list: list[TradeInfoType] = [TradeInfoType()]
-
-client = AsyncOpenAI()  # Replace with your actual API key
 app = FastAPI()
 
 # CORS middleware setup
@@ -65,43 +66,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def generte_response() -> str:
-    if global_json_list[0].is_trading_related == False:
-        return (
-            "I am an LLM model designed exclusively to handle crypto trading commands."
-        )
-    elif global_json_list[0].action == None:
-        state[0] = State.ACTION
-        return "Please specify the type of transaction: Buy or Sell."
-    elif global_json_list[0].coin == None:
-        state[0] = State.COIN
-        return "Please enter crypto name."
-    elif global_json_list[0].amount == None:
-        state[0] = State.AMOUNT
-        return "Please enter the amount of crypto."
-    elif global_json_list[0].exchange == None:
-        state[0] = State.EXCHANGE
-        return "Please enter the Exchange name."
-    else:
-        return f"```json\n{global_json_list[0].model_dump_json(exclude={"is_trading_related"})}\n```"
 
-async def call_models(llm, msg):
-    if state[0] == State.NONE:
-        model_response = await trade_extractor(llm, msg)
-        global_json_list[0] = TradeInfoType(**model_response)
-    elif state[0] == State.ACTION:
-        action = await action_extractor(llm, msg)
-        global_json_list[0].action = action["action"]
-    elif state[0] == State.COIN:
-        coin = await crypto_extractor(llm, msg)
-        global_json_list[0].coin = coin["coin"]
-    elif state[0] == State.AMOUNT:
-        amount = await amount_extractor(llm, msg)
-        global_json_list[0].amount = amount["amount"]
-    elif state[0] == State.EXCHANGE:
-        exchange_name = await exchange_extractor(llm, msg)
-        global_json_list[0].exchange = exchange_name["exchange"]
-    state[0] = State.NONE
+chatbot = StructChatModel(models_dict)
 
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
@@ -110,18 +76,26 @@ async def generate_stream_response(
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
     last_msg = messages[-1].content
-    llm = ChatOpenAI(model="gpt-4o-mini")
-    await call_models(llm, last_msg)
-    content = generte_response()
-    print("global_json_list[0]: ", global_json_list[0])
+    print(model_name)
+    # llm = models_dict[model_name]
+
+    model_response = chatbot.send_message(model_name, last_msg)
+    message_content = model_response.response
+    trade_api = model_response.api
+    get_stauts = model_response.get_stauts
+    model_response.response
+    # output_content, output_struct = ast.literal_eval(model_output)
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
         model=model_name,
-        choices=[StreamChoice(delta={"content": f"{content} "})],
+        choices=[StreamChoice(delta={"content": f"{ message_content} "})],  #
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
-
+    if trade_api is not None:
+        print(trade_api.model_dump_json(indent=4))
+    if get_stauts is not None:
+        print(get_stauts)
     # Send the final empty chunk with stop finish reason
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
@@ -133,27 +107,6 @@ async def generate_stream_response(
 
     # Send the final [DONE] message to signal the end of the stream
     yield "data: [DONE]\n\n"
-
-async def get_open_ai_models(
-    api_token: str,
-    url: str = "https://api.openai.com/v1/models",
-) -> GptModelResponseFormat:
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Content-Type": "application/json",
-        "Custom-Header": "SomeValue",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers)
-    return GptModelResponseFormat(**response.json())
-
-def filter_models_by_id(
-    data: GptModelResponseFormat, target_ids: list[str]
-) -> GptModelResponseFormat:
-    filtered_list_data = [item for item in data.data if item.id in target_ids]
-    filtered_data = {"object": "list", "data": filtered_list_data}
-    return GptModelResponseFormat(**filtered_data)
 
 @app.get("/v1/models")
 async def get_v1_models() -> GptModelResponseFormat:
@@ -199,3 +152,39 @@ async def v1_chat_comletions(
             system_fingerprint="some_finger",
         )
         return JSONResponse(normal_response.model_dump())
+
+async def get_open_ai_models(
+    api_token: str,
+    url: str = "https://api.openai.com/v1/models",
+) -> GptModelResponseFormat:
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json",
+        "Custom-Header": "SomeValue",
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+    return GptModelResponseFormat(**response.json())
+
+def filter_models_by_id(
+    data: GptModelResponseFormat, target_ids: List[str]
+) -> GptModelResponseFormat:
+    filtered_list_data = [item for item in data.data if item.id in target_ids]
+    filtered_data = {"object": "list", "data": filtered_list_data}
+    return GptModelResponseFormat(**filtered_data)
+
+@app.get("/v1/models")
+async def list_models() -> GptModelResponseFormat:
+    model_descripter_list: list[GptModelDescriptor] = []
+    for model in models_dict:
+        model_descripter = GptModelDescriptor(id=model)
+        model_descripter_list.append(model_descripter)
+
+    return GptModelResponseFormat(data=model_descripter_list)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

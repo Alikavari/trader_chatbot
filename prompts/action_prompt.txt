@@ -1,2 +1,0 @@
-Analyze the following user command and determine if it indicates an intention to **buy** or **sell**. 
-Respond with only one of the following options: `action=buy`, `action=sell`, or `action=null` if it's unrelated to either.

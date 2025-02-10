@@ -60,16 +60,16 @@ class ChatCompletionChunk(BaseModel):
 
 # /v1/models Response Structs
 class GptModelDescriptor(BaseModel):
-    id: str
-    object: str
-    created: int
-    owned_by: str
+    id: str 
+    object: str = "model"
+    created: int = 0
+    owned_by: str = "system"
 
 class GptModelResponseFormat(BaseModel):
-    object: str
+    object: str = "list"
     data: list[GptModelDescriptor]
 
-# Model Request Structs
+# Model Request Struct
 class ChatRequest(BaseModel):
     model: str
     messages: list[Message]

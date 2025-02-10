@@ -47,6 +47,7 @@ httptools==0.6.4
 httpx==0.28.1
     # via fastapi
     # via langsmith
+    # via ollama
     # via openai
 idna==3.10
     # via anyio
@@ -62,7 +63,10 @@ jsonpatch==1.33
 jsonpointer==3.0.0
     # via jsonpatch
 langchain-core==0.3.33
+    # via langchain-ollama
     # via langchain-openai
+langchain-ollama==0.2.3
+    # via trader-chatbot
 langchain-openai==0.3.3
     # via trader-chatbot
 langsmith==0.3.4
@@ -73,6 +77,8 @@ markupsafe==3.0.2
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+ollama==0.4.7
+    # via langchain-ollama
 openai==1.61.0
     # via langchain-openai
     # via trader-chatbot
@@ -84,6 +90,7 @@ pydantic==2.10.6
     # via fastapi
     # via langchain-core
     # via langsmith
+    # via ollama
     # via openai
 pydantic-core==2.27.2
     # via pydantic

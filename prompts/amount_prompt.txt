@@ -1,2 +1,0 @@
-Extract the amount from the user's command.
-The amount can be in numerical form (e.g., 100, 2500.75). If no amount is mentioned, return null.
