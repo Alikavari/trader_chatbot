@@ -25,7 +25,7 @@ class OpenPosition(BaseModel):
     action: Literal["open"]
     position: Literal["long", "short"]
     asset: asset_type
-    amount: int
+    position_size: Annotated[int, Field(description="The position size (in dollar$)")]
     leverage: int
     stop_loss: Optional[StopLossConditoin] = None
     take_profit: Optional[TakeProfitCondition] = None

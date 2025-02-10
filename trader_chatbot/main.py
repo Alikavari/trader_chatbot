@@ -16,7 +16,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from typing import Any, List, TypedDict, cast
 
 
-from chatbot import ChatBot, StructChatModel
+from trader_chatbot.chatbot import ChatBot, StructChatModel
 
 from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
@@ -41,19 +41,17 @@ class TradeInfo(TypedDict):
     amount: float
     exchange: str
 
+load_dotenv()
 
 models_dict: dict[str, BaseChatModel] = {
-    "gpt-40-mini": ChatOpenAI(model="gpt-4o-mini", temperature=0),
-    "gpt-40": ChatOpenAI(model="gpt-4o", temperature=0),
+    "gpt-4o-mini": ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    "gpt-4o": ChatOpenAI(model="gpt-4o", temperature=0),
     "qwen2.5-coder": ChatOllama(model="qwen2.5-coder", temperature=0),
 }
 
 
 LLMOutputType = tuple[str, None | TradeInfo]
-load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-os.environ["htttp_proxy"] = "127.0.0.1:2081"
-os.environ["htttps_proxy"] = "127.0.0.1:2081"
 
 app = FastAPI()
 
