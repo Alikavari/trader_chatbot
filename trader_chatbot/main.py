@@ -5,17 +5,14 @@ import httpx
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-from typing import List, AsyncGenerator
+from typing import AsyncGenerator
 import uuid
 import time
 import os
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
 from enum import Enum
-import uvicorn
 
 from trader_chatbot.extractors import (
-    TradeInfo,
     action_extractor,
     amount_extractor,
     crypto_extractor,
@@ -28,15 +25,14 @@ from trader_chatbot.openai_structs import (
     NormalChoice,
     StreamChoice,
     Message,
-    GptModelDescriptor,
     GptModelResponseFormat,
     ChatRequest,
 )  # Import correct type
 
+###
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 
 class TradeInfoType(BaseModel):
     is_trading_related: bool = False
@@ -45,7 +41,6 @@ class TradeInfoType(BaseModel):
     amount: float | None = None
     exchange: str | None = None
 
-
 class State(Enum):
     ACTION = "action"
     COIN = "coin"
@@ -53,12 +48,10 @@ class State(Enum):
     EXCHANGE = "exchange"
     NONE = "none"
 
-
 # global variable
 state = [State.NONE]
 
 global_json_list: list[TradeInfoType] = [TradeInfoType()]
-
 
 client = AsyncOpenAI()  # Replace with your actual API key
 app = FastAPI()
@@ -71,9 +64,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-from typing import Any, List, TypedDict, cast
-
 
 def generte_response() -> str:
     if global_json_list[0].is_trading_related == False:
@@ -95,11 +85,9 @@ def generte_response() -> str:
     else:
         return f"```json\n{global_json_list[0].model_dump_json(exclude={"is_trading_related"})}\n```"
 
-
 async def call_models(llm, msg):
     if state[0] == State.NONE:
         model_response = await trade_extractor(llm, msg)
-        print(model_response)
         global_json_list[0] = TradeInfoType(**model_response)
     elif state[0] == State.ACTION:
         action = await action_extractor(llm, msg)
@@ -115,10 +103,9 @@ async def call_models(llm, msg):
         global_json_list[0].exchange = exchange_name["exchange"]
     state[0] = State.NONE
 
-
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
-    messages: List[Message], model_name: str
+    messages: list[Message], model_name: str
 ) -> AsyncGenerator[str, None]:
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
@@ -126,6 +113,7 @@ async def generate_stream_response(
     llm = ChatOpenAI(model="gpt-4o-mini")
     await call_models(llm, last_msg)
     content = generte_response()
+    print("global_json_list[0]: ", global_json_list[0])
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
@@ -146,10 +134,44 @@ async def generate_stream_response(
     # Send the final [DONE] message to signal the end of the stream
     yield "data: [DONE]\n\n"
 
+async def get_open_ai_models(
+    api_token: str,
+    url: str = "https://api.openai.com/v1/models",
+) -> GptModelResponseFormat:
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json",
+        "Custom-Header": "SomeValue",
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+    return GptModelResponseFormat(**response.json())
+
+def filter_models_by_id(
+    data: GptModelResponseFormat, target_ids: list[str]
+) -> GptModelResponseFormat:
+    filtered_list_data = [item for item in data.data if item.id in target_ids]
+    filtered_data = {"object": "list", "data": filtered_list_data}
+    return GptModelResponseFormat(**filtered_data)
+
+@app.get("/v1/models")
+async def get_v1_models() -> GptModelResponseFormat:
+    if OPENAI_API_KEY is not None:
+        models_info = await get_open_ai_models(OPENAI_API_KEY)
+    else:
+        raise RuntimeError("❌ ERROR: 'API_KEY' environment variable is missing!")
+    target_ids = [
+        "gpt-4o",
+        "gpt-4-turbo",
+        "gpt-4o-mini",
+    ]
+    models_info = filter_models_by_id(models_info, target_ids)
+    return models_info
 
 # Chat completions endpoint
 @app.post("/v1/chat/completions")
-async def chat_completions(
+async def v1_chat_comletions(
     request: ChatRequest,
 ) -> Response:
     if request.stream == True:  # if clinet needs stream response
@@ -177,41 +199,3 @@ async def chat_completions(
             system_fingerprint="some_finger",
         )
         return JSONResponse(normal_response.model_dump())
-
-
-async def get_open_ai_models(
-    api_token: str,
-    url: str = "https://api.openai.com/v1/models",
-) -> GptModelResponseFormat:
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Content-Type": "application/json",
-        "Custom-Header": "SomeValue",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers)
-    return GptModelResponseFormat(**response.json())
-
-
-def filter_models_by_id(
-    data: GptModelResponseFormat, target_ids: List[str]
-) -> GptModelResponseFormat:
-    filtered_list_data = [item for item in data.data if item.id in target_ids]
-    filtered_data = {"object": "list", "data": filtered_list_data}
-    return GptModelResponseFormat(**filtered_data)
-
-
-@app.get("/v1/models")
-async def list_models() -> GptModelResponseFormat:
-    if OPENAI_API_KEY:
-        models_info = await get_open_ai_models(OPENAI_API_KEY)
-    else:
-        raise RuntimeError("❌ ERROR: 'API_KEY' environment variable is missing!")
-    target_ids = [
-        "gpt-4o",
-        "gpt-4-turbo",
-        "gpt-4o-mini",
-    ]
-    models_info = filter_models_by_id(models_info, target_ids)
-    return models_info

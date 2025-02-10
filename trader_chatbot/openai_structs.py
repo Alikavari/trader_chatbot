@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 
 # v1/chat/completion  Stream Response Structs
@@ -8,25 +8,21 @@ class Message(BaseModel):
     content: str
     refusal: Optional[str] = None
 
-
 class NormalChoice(BaseModel):
     index: int = 0
     message: Message
     logprobs: Optional[str] = None
     finish_reason: str = "stop"
 
-
 class PromptTokensDetails(BaseModel):
     cached_tokens: int = 0
     audio_tokens: int = 0
-
 
 class CompletionTokensDetails(BaseModel):
     reasoning_tokens: int = 0
     audio_tokens: int = 0
     accepted_prediction_tokens: int = 0
     rejected_prediction_tokens: int = 0
-
 
 class Usage(BaseModel):
     prompt_tokens: int = 0
@@ -35,17 +31,15 @@ class Usage(BaseModel):
     prompt_tokens_details: PromptTokensDetails = PromptTokensDetails()
     completion_tokens_details: CompletionTokensDetails = CompletionTokensDetails()
 
-
 class ChatCompletionResponse(BaseModel):
     id: str
     object: str = "chat.completion"
     created: int
     model: str
-    choices: List[NormalChoice]
+    choices: list[NormalChoice]
     usage: Usage = Usage()
     service_tier: str = "default"
     system_fingerprint: str
-
 
 # v1/chat/completion Stream Response Structs
 class StreamChoice(BaseModel):
@@ -53,7 +47,6 @@ class StreamChoice(BaseModel):
     delta: dict = {}
     logprobs: None = None
     finish_reason: str | None = None
-
 
 class ChatCompletionChunk(BaseModel):
     id: str
@@ -63,8 +56,7 @@ class ChatCompletionChunk(BaseModel):
     provider: str = "provider_name"
     service_tier: str = "default"
     system_fingerprint: str = "fp_72ed7ab54c"
-    choices: List[StreamChoice]
-
+    choices: list[StreamChoice]
 
 # /v1/models Response Structs
 class GptModelDescriptor(BaseModel):
@@ -73,16 +65,14 @@ class GptModelDescriptor(BaseModel):
     created: int
     owned_by: str
 
-
 class GptModelResponseFormat(BaseModel):
     object: str
     data: list[GptModelDescriptor]
 
-
 # Model Request Structs
 class ChatRequest(BaseModel):
     model: str
-    messages: List[Message]
+    messages: list[Message]
     temperature: float = 1.0
     max_tokens: int = 256
     stream: bool = False
