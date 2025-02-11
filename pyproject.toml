@@ -10,6 +10,13 @@ dependencies    = [
     "python-dotenv>=1.0.1",
     "fastapi[standard]>=0.115.8",
     "langchain-ollama>=0.2.3",
+    "langchain[groq]>=0.3.18",
+    "langchain-community>=0.3.17",
+    "langgraph>=0.2.70",
+    "langchain-anthropic>=0.3.7",
+    "tavily-python>=0.5.1",
+    "langgraph-checkpoint-sqlite>=2.0.3",
+    "web3>=7.8.0",
 ]
 
 [tool.rye.scripts]

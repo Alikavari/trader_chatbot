@@ -20,6 +20,8 @@
     5. **Account Information:**
        - If the user asks for account information (e.g., balance, position exposure, opened positions, or uPnL status), output the appropriate message.
 
+    6. ** if the user wants the supported assets you should show the supported assets to user.
+    
        Example Queries:
        - "What is my balance?"
        - "What is my position exposure?"
