@@ -20,9 +20,8 @@ from langchain_core.tools import tool
 
 from trader_chatbot.chatbot import (
     ChatBot,
-    StructChatModel,
-    GetWalletAddress,
     BotResponse,
+    WalletBot,
 )
 
 from trader_chatbot.openai_structs import (
@@ -36,10 +35,11 @@ from trader_chatbot.openai_structs import (
     ChatRequest,
 )  # Import correct type
 
+# Consts
 HIGHLIGHT = "\033[1;43m"  # Yellow background with bold text
 RESET = "\033[0m"
-
 TAB = """<button>Click Me</button>"""
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 class TradeInfo(TypedDict):
@@ -75,33 +75,29 @@ models_dict: dict[str, BaseChatModel] = {
 }
 
 
-LLMOutputType = tuple[str, None | TradeInfo]
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 app = FastAPI()
 
 # CORS middleware setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to specific domains in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-def llm_router(chatbot, walletbot, message, model_name) -> BotResponse:
+def llm_router(
+    chatbot: ChatBot, walletbot: WalletBot, message, model_name
+) -> BotResponse:
     if dummy_database[0]["wallet_address"] == None:
-        response: str = walletbot.run_agent(message)
-        print("wallet")
-        return BotResponse(response=response, api=None, get_status=None)
+        return walletbot.run_agent(message)
     else:
-        print("chatbot")
         return chatbot.send_message(model_name, message)
 
 
-chatbot = StructChatModel(models_dict)
-walletbot = GetWalletAddress(models_dict["gpt-4o-mini"], is_valid_eth_address)
+chatbot = ChatBot(models_dict)
+walletbot = WalletBot(models_dict["gpt-4o-mini"], is_valid_eth_address)
 
 
 # Function to generate streamed responses in the desired format
@@ -111,10 +107,7 @@ async def generate_stream_response(
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
     last_msg = messages[-1].content
-    print(model_name)
-    # llm = models_dict[model_name]
 
-    # model_response = chatbot.send_message(model_name, last_msg)
     model_response = llm_router(chatbot, walletbot, last_msg, model_name)
     message_content = model_response.response
     trade_api = model_response.api
