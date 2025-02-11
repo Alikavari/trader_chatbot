@@ -14,9 +14,16 @@ import os
 from openai import AsyncOpenAI, BaseModel
 from openai.types.chat import ChatCompletionMessageParam
 from typing import Any, List, TypedDict, cast
+from web3 import Web3
+from langchain_core.tools import tool
 
 
-from trader_chatbot.chatbot import ChatBot, StructChatModel
+from trader_chatbot.chatbot import (
+    ChatBot,
+    StructChatModel,
+    GetWalletAddress,
+    BotResponse,
+)
 
 from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
@@ -40,6 +47,24 @@ class TradeInfo(TypedDict):
     action: str
     amount: float
     exchange: str
+
+
+dummy_database = [
+    {"id": 1, "wallet_address": None},
+]
+
+
+@tool
+def is_valid_eth_address(address: str) -> bool:
+    """
+    Validates if the provided Ethereum address is correctly formatted (starts with '0x' and contains 40 hexadecimal characters).
+    Returns True if valid, False otherwise.
+    """
+    valet_valdation = Web3.is_address(address)
+    if valet_valdation == True:
+        dummy_database[0]["wallet_address"] = address
+    return valet_valdation
+
 
 load_dotenv()
 
@@ -65,7 +90,19 @@ app.add_middleware(
 )
 
 
+def llm_router(chatbot, walletbot, message, model_name) -> BotResponse:
+    if dummy_database[0]["wallet_address"] == None:
+        response: str = walletbot.run_agent(message)
+        print("wallet")
+        return BotResponse(response=response, api=None, get_status=None)
+    else:
+        print("chatbot")
+        return chatbot.send_message(model_name, message)
+
+
 chatbot = StructChatModel(models_dict)
+walletbot = GetWalletAddress(models_dict["gpt-4o-mini"], is_valid_eth_address)
+
 
 # Function to generate streamed responses in the desired format
 async def generate_stream_response(
@@ -77,11 +114,11 @@ async def generate_stream_response(
     print(model_name)
     # llm = models_dict[model_name]
 
-    model_response = chatbot.send_message(model_name, last_msg)
+    # model_response = chatbot.send_message(model_name, last_msg)
+    model_response = llm_router(chatbot, walletbot, last_msg, model_name)
     message_content = model_response.response
     trade_api = model_response.api
-    get_stauts = model_response.get_stauts
-    model_response.response
+    get_status = model_response.get_status
     # output_content, output_struct = ast.literal_eval(model_output)
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
@@ -92,8 +129,19 @@ async def generate_stream_response(
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
     if trade_api is not None:
         print(trade_api.model_dump_json(indent=4))
-    if get_stauts is not None:
-        print(get_stauts)
+    if get_status is not None:
+        out = {}
+        out["status"] = get_status
+        if get_status == "balance":
+            out["wallet_address"] = dummy_database[0]["wallet_address"]
+        chunk = ChatCompletionChunk(
+            id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
+            created=timestamp,
+            model=model_name,
+            choices=[StreamChoice(delta={"content": f"```json\n\n{ out}  \n\n```"})],  #
+        )
+        yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
+
     # Send the final empty chunk with stop finish reason
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
@@ -106,8 +154,10 @@ async def generate_stream_response(
     # Send the final [DONE] message to signal the end of the stream
     yield "data: [DONE]\n\n"
 
+
 @app.get("/v1/models")
 async def get_v1_models() -> GptModelResponseFormat:
+    print("a")
     if OPENAI_API_KEY is not None:
         models_info = await get_open_ai_models(OPENAI_API_KEY)
     else:
@@ -119,6 +169,7 @@ async def get_v1_models() -> GptModelResponseFormat:
     ]
     models_info = filter_models_by_id(models_info, target_ids)
     return models_info
+
 
 # Chat completions endpoint
 @app.post("/v1/chat/completions")
@@ -151,6 +202,7 @@ async def v1_chat_comletions(
         )
         return JSONResponse(normal_response.model_dump())
 
+
 async def get_open_ai_models(
     api_token: str,
     url: str = "https://api.openai.com/v1/models",
@@ -165,12 +217,14 @@ async def get_open_ai_models(
         response = await client.get(url, headers=headers)
     return GptModelResponseFormat(**response.json())
 
+
 def filter_models_by_id(
     data: GptModelResponseFormat, target_ids: List[str]
 ) -> GptModelResponseFormat:
     filtered_list_data = [item for item in data.data if item.id in target_ids]
     filtered_data = {"object": "list", "data": filtered_list_data}
     return GptModelResponseFormat(**filtered_data)
+
 
 @app.get("/v1/models")
 async def list_models() -> GptModelResponseFormat:
