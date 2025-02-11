@@ -9,28 +9,128 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.runnables.config import RunnableConfig
 
 ModelMessage = SystemMessage | HumanMessage | AIMessage
-status_type = Literal["balance", "position" "exposure", "positions", "opened", "uPnL"]
-method_type = Literal["percent", "dollars"]
-asset_type = Literal["BTC", "ETH", "XRP", "DOGE"]
-
+Statuses = Literal["balance", "position" "exposure", "positions", "opened", "uPnL"]
+Methods = Literal["percent", "dollars"]
+Assets = Literal[
+    "BTC",
+    "ETH",
+    "BNB",
+    "SOL",
+    "USDC",
+    "XRP",
+    "DOGE",
+    "TON",
+    "TRON",
+    "ADA",
+    "AVAX",
+    "1000SHIB",
+    "LINK",
+    "BCH",
+    "DOT",
+    "LTC",
+    "KAS",
+    "UNI",
+    "ICP",
+    "FET",
+    "XMR",
+    "SUI",
+    "1000PEPE",
+    "APT",
+    "XLM",
+    "POL",
+    "ETC",
+    "TAO",
+    "STX",
+    "IMX",
+    "AAVE",
+    "FIL",
+    "INJ",
+    "ARB",
+    "RENDER",
+    "HBAR",
+    "OP",
+    "VET",
+    "ATOM",
+    "FTM",
+    "WIF",
+    "RUNE",
+    "GRT",
+    "AR",
+    "1000FLOKI",
+    "1000BONK",
+    "TIA",
+    "PYTH",
+    "ALGO",
+    "JUP",
+    "SEI",
+    "JASMY",
+    "BSV",
+    "OM",
+    "LDO",
+    "QNT",
+    "ONDO",
+    "FLOW",
+    "CKB",
+    "NOT",
+    "BRETT",
+    "BEAMX",
+    "EOS",
+    "EGLD",
+    "AXS",
+    "STRK",
+    "POPCAT",
+    "WLD",
+    "NEO",
+    "ORDI",
+    "GALA",
+    "XTZ",
+    "CFX",
+    "1000XEC",
+    "BNX",
+    "SAND",
+    "ENS",
+    "W",
+    "MANA",
+    "PENDLE",
+    "RONIN",
+    "KLAY",
+    "DOGS",
+    "MINA",
+    "ZEC",
+    "CHZ",
+    "1000LUNC",
+    "CAKE",
+    "SNX",
+    "APE",
+    "ASTR",
+    "ZRO",
+    "LPT",
+    "ENA",
+    "ROSE",
+    "BOME",
+    "IOTA",
+    "ZK",
+    "SUPER",
+    "AXELAR",
+]
 
 PROMPT_DIR = "./prompts/prompt.txt"
 
 
 class StopLossConditoin(BaseModel):
     value: int = Field(..., alias="SL_value")
-    method: method_type = Field(..., alias="SL_type")
+    method: Methods = Field(..., alias="SL_type")
 
 
 class TakeProfitCondition(BaseModel):
     value: int = Field(..., alias="TP_value")
-    method: method_type = Field(..., alias="TP_type")
+    method: Methods = Field(..., alias="TP_type")
 
 
 class OpenPosition(BaseModel):
     action: Literal["open"]
     position: Literal["long", "short"]
-    asset: asset_type
+    asset: Assets
     position_size: Annotated[int, Field(description="The position size (in dollar$)")]
     leverage: int
     stop_loss: Optional[StopLossConditoin] = None
@@ -40,7 +140,7 @@ class OpenPosition(BaseModel):
 class ClosePosition(BaseModel):
     action: Literal["close"]
     position: Literal["long", "short"]
-    asset: asset_type
+    asset: Assets
 
 
 class BotResponse(BaseModel):
@@ -50,7 +150,7 @@ class BotResponse(BaseModel):
         Field(description="The API field, no API generated set to None"),
     ]
     get_status: Annotated[
-        Union[status_type, None],
+        Union[Statuses, None],
         Field(description="The statuses field, no status generated set to None"),
     ]
 
@@ -94,15 +194,13 @@ class WalletBot:
         7. Never proceed without confirming a valid wallet address.
         """
         memory = MemorySaver()
-        tools = [wallet_fucntion]  # Using the realistic dummy weather tool
+        tools = [wallet_fucntion]
         self.agent_executor = create_react_agent(
             llm, tools, checkpointer=memory, prompt=system_prompt
         )
-        # Step 3: Use the Agent (No Streaming)
         self.config: RunnableConfig = {"configurable": {"thread_id": "abc123"}}
 
     def run_agent(self, user_message: str) -> BotResponse:
-        # First messageA
         response_1 = self.agent_executor.invoke(
             {
                 "messages": [
