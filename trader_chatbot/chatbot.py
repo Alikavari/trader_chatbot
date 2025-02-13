@@ -9,7 +9,7 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.runnables.config import RunnableConfig
 
 ModelMessage = SystemMessage | HumanMessage | AIMessage
-Statuses = Literal["balance", "position" "exposure", "positions", "opened", "uPnL"]
+Statuses = Literal["balance", "position_exposure", "positions_opened", "uPnL"]
 Methods = Literal["percent", "dollars"]
 Assets = Literal[
     "BTC",
@@ -185,13 +185,14 @@ class WalletBot:
         system_prompt = """
         You are an intelligent agent designed solely to collect and verify a wallet address from the user.
 
-        1. Your only purpose is to request and confirm the user's wallet address.
-        2. Politely ask the user to provides his/her wallet address
-        3. When the user provides an address, call the `is_wallet_confirmed` function to verify it.
-        4. If the address is valid, respond with: "Wallet address confirmed ✅." or sth like this 
-        5. If the address is invalid, politely ask the user to re-enter it and repeat the validation until a valid address is provided.
-        6. Do not answer any questions unrelated to wallet address submission. If the user asks anything else, ask him/his  wallet address. 
-        7. Never proceed without confirming a valid wallet address.
+        -Your only task is to ask for and confirm the user's wallet address.
+        -Politely request the user’s wallet address.
+        -Once the user provides the wallet address, use the is_wallet_confirmed function to verify it.
+        -If the wallet address is valid, inform the user that it’s valid and that they can begin trading.
+        -If the wallet address is invalid, kindly ask the user to re-enter it and continue the verification until a valid address is provided.
+        -Avoid answering any questions unrelated to the wallet address. If the user asks something else, redirect them to provide their wallet address.
+        -Do not proceed with any action until a valid wallet address is confirmed.
+        -If the user has already provided a valid wallet address, do not ask for it again.
         """
         memory = MemorySaver()
         tools = [wallet_fucntion]
