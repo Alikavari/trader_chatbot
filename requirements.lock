@@ -35,6 +35,8 @@ attrs==25.1.0
     # via aiohttp
 bitarray==3.0.0
     # via eth-account
+black==25.1.0
+    # via trader-chatbot
 certifi==2025.1.31
     # via httpcore
     # via httpx
@@ -44,6 +46,7 @@ charset-normalizer==3.4.1
 ckzg==2.0.1
     # via eth-account
 click==8.1.8
+    # via black
     # via rich-toolkit
     # via typer
     # via uvicorn
@@ -187,6 +190,7 @@ multidict==6.1.0
     # via aiohttp
     # via yarl
 mypy-extensions==1.0.0
+    # via black
     # via typing-inspect
 numpy==2.2.2
     # via langchain
@@ -200,10 +204,15 @@ orjson==3.10.15
     # via langgraph-sdk
     # via langsmith
 packaging==24.2
+    # via black
     # via langchain-core
     # via marshmallow
 parsimonious==0.10.0
     # via eth-abi
+pathspec==0.12.1
+    # via black
+platformdirs==4.3.6
+    # via black
 propcache==0.2.1
     # via aiohttp
     # via yarl

@@ -67,11 +67,12 @@ def is_valid_eth_address(address: str) -> bool:
 
 
 load_dotenv()
-
+os.system("clear")
 models_dict: dict[str, BaseChatModel] = {
+    "muon-llm-v0.1": ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    # "gpt-4o": ChatOpenAI(model="gpt-4o", temperature=0),
+    "llama3.2:3b": ChatOllama(model="llama3.2:3b", temperature=0),
     "gpt-4o-mini": ChatOpenAI(model="gpt-4o-mini", temperature=0),
-    "gpt-4o": ChatOpenAI(model="gpt-4o", temperature=0),
-    "qwen2.5-coder": ChatOllama(model="qwen2.5-coder", temperature=0),
 }
 
 
@@ -97,7 +98,7 @@ def llm_router(
 
 
 chatbot = ChatBot(models_dict)
-walletbot = WalletBot(models_dict["gpt-4o-mini"], is_valid_eth_address)
+# walletbot = WalletBot(models_dict["gpt-4o-mini"], is_valid_eth_address)
 
 
 # Function to generate streamed responses in the desired format
@@ -108,7 +109,7 @@ async def generate_stream_response(
     timestamp = int(time.time())  # Current timestamp
     last_msg = messages[-1].content
 
-    model_response = llm_router(chatbot, walletbot, last_msg, model_name)
+    model_response = chatbot.send_message(model_name, last_msg)
     message_content = model_response.response
     trade_api = model_response.api
     get_status = model_response.get_status
@@ -120,13 +121,20 @@ async def generate_stream_response(
         choices=[StreamChoice(delta={"content": f"{ message_content} "})],  #
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
+
+    chunk = ChatCompletionChunk(
+        id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
+        created=timestamp,
+        model=model_name,
+        choices=[StreamChoice(delta={"content": f"{  "\n"} "})],  #
+    )
+    yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
+
     if trade_api is not None:
         print(trade_api.model_dump_json(indent=4))
     if get_status is not None:
         out = {}
         out["status"] = get_status
-        if get_status == "balance":
-            out["wallet_address"] = dummy_database[0]["wallet_address"]
         chunk = ChatCompletionChunk(
             id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
             created=timestamp,
@@ -148,20 +156,20 @@ async def generate_stream_response(
     yield "data: [DONE]\n\n"
 
 
-@app.get("/v1/models")
-async def get_v1_models() -> GptModelResponseFormat:
-    print("a")
-    if OPENAI_API_KEY is not None:
-        models_info = await get_open_ai_models(OPENAI_API_KEY)
-    else:
-        raise RuntimeError("❌ ERROR: 'API_KEY' environment variable is missing!")
-    target_ids = [
-        "gpt-4o",
-        "gpt-4-turbo",
-        "gpt-4o-mini",
-    ]
-    models_info = filter_models_by_id(models_info, target_ids)
-    return models_info
+# @app.get("/v1/models")
+# async def get_v1_models() -> GptModelResponseFormat:
+#     print("a")
+#     if OPENAI_API_KEY is not None:
+#         models_info = await get_open_ai_models(OPENAI_API_KEY)
+#     else:
+#         raise RuntimeError("❌ ERROR: 'API_KEY' environment variable is missing!")
+#     target_ids = [
+#         "gpt-4o",
+#         "gpt-4-turbo",
+#         "gpt-4o-mini",
+#     ]
+#     models_info = filter_models_by_id(models_info, target_ids)
+#     return models_info
 
 
 # Chat completions endpoint
@@ -185,11 +193,7 @@ async def v1_chat_comletions(
             created=int(time.time()),
             model="gpt-4o",
             choices=[
-                NormalChoice(
-                    message=Message(
-                        role="assistant", content="The Cryptocurrency trading ChatBot"
-                    )
-                )
+                NormalChoice(message=Message(role="assistant", content="Muon LLM"))
             ],
             system_fingerprint="some_finger",
         )
