@@ -329,7 +329,7 @@ uvloop==0.21.0
     # via uvicorn
 watchfiles==1.0.4
     # via uvicorn
-web3==7.8.0
+web3==7.10.0
     # via trader-chatbot
 websockets==13.1
     # via uvicorn

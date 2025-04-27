@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_core.language_models.chat_models import BaseChatModel
-
+from fastapi import FastAPI, WebSocket
+from trader_chatbot.toolkits.message_handling import ModelMessage
+from trader_chatbot.toolkits.message_handling import MessageWrapper
 from typing import List, AsyncGenerator
 import uuid
 import time
@@ -14,16 +16,11 @@ import os
 from openai import AsyncOpenAI, BaseModel
 from openai.types.chat import ChatCompletionMessageParam
 from typing import Any, List, TypedDict, cast
-from web3 import Web3
-from langchain_core.tools import tool
 
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from trader_chatbot.chatbot import (
-    ChatBot,
-    BotResponse,
-    WalletBot,
-)
-
+from trader_chatbot.chatbot import Agent, ModelMessage
 from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -35,47 +32,29 @@ from trader_chatbot.openai_structs import (
     ChatRequest,
 )  # Import correct type
 
+from trader_chatbot.tool_functions import (
+    get_balance,
+    wellcome_message,
+    transfer,
+)
+
+
 # Consts
 HIGHLIGHT = "\033[1;43m"  # Yellow background with bold text
 RESET = "\033[0m"
-TAB = """<button>Click Me</button>"""
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-
-class TradeInfo(TypedDict):
-    coin: str
-    action: str
-    amount: float
-    exchange: str
-
-
-dummy_database = [
-    {"id": 1, "wallet_address": None},
-]
-
-
-@tool
-def is_valid_eth_address(address: str) -> bool:
-    """
-    Validates if the provided Ethereum address is correctly formatted (starts with '0x' and contains 40 hexadecimal characters).
-    Returns True if valid, False otherwise.
-    """
-    valet_valdation = Web3.is_address(address)
-    if valet_valdation == True:
-        dummy_database[0]["wallet_address"] = address
-    return valet_valdation
 
 
 load_dotenv()
 os.system("clear")
-models_dict: dict[str, BaseChatModel] = {
-    "muon-llm-v0.1": ChatOpenAI(model="gpt-4o-mini", temperature=0),
+models_dict: dict[str, Any] = {
+    "muon-llm-v0.1": None,
     # "gpt-4o": ChatOpenAI(model="gpt-4o", temperature=0),
-    "llama3.2:3b": ChatOllama(model="llama3.2:3b", temperature=0),
-    "gpt-4o-mini": ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    "llama3.2:3b": None,
+    "gpt-4o-mini": None,
 }
 
-
+wrapper = MessageWrapper()
 app = FastAPI()
 
 # CORS middleware setup
@@ -88,17 +67,15 @@ app.add_middleware(
 )
 
 
-def llm_router(
-    chatbot: ChatBot, walletbot: WalletBot, message, model_name
-) -> BotResponse:
-    if dummy_database[0]["wallet_address"] == None:
-        return walletbot.run_agent(message)
-    else:
-        return chatbot.send_message(model_name, message)
+read_tools = {
+    "wellcome_message": wellcome_message,
+    "get_balance": get_balance,
+}
+write_tools = {"transfer": transfer}
 
 
-chatbot = ChatBot(models_dict)
-# walletbot = WalletBot(models_dict["gpt-4o-mini"], is_valid_eth_address)
+model = init_chat_model("gpt-4o", model_provider="openai")
+agent = Agent(model, read_tools, write_tools)
 
 
 # Function to generate streamed responses in the desired format
@@ -107,18 +84,15 @@ async def generate_stream_response(
 ) -> AsyncGenerator[str, None]:
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
-    last_msg = messages[-1].content
+    print(messages)
+    agent_message = wrapper.wrap_messages_for_agent(messages)
 
-    model_response = chatbot.send_message(model_name, last_msg)
-    message_content = model_response.response
-    trade_api = model_response.api
-    get_status = model_response.get_status
-    # output_content, output_struct = ast.literal_eval(model_output)
+    response = await agent.ainvoke(agent_message)
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
         model=model_name,
-        choices=[StreamChoice(delta={"content": f"{ message_content} "})],  #
+        choices=[StreamChoice(delta={"content": f"{ response.model_dump_json()} "})],  #
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 
@@ -130,20 +104,6 @@ async def generate_stream_response(
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 
-    if trade_api is not None:
-        print(trade_api.model_dump_json(indent=4))
-    if get_status is not None:
-        out = {}
-        out["status"] = get_status
-        chunk = ChatCompletionChunk(
-            id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
-            created=timestamp,
-            model=model_name,
-            choices=[StreamChoice(delta={"content": f"```json\n\n{ out}  \n\n```"})],  #
-        )
-        yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
-
-    # Send the final empty chunk with stop finish reason
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
@@ -154,22 +114,6 @@ async def generate_stream_response(
 
     # Send the final [DONE] message to signal the end of the stream
     yield "data: [DONE]\n\n"
-
-
-# @app.get("/v1/models")
-# async def get_v1_models() -> GptModelResponseFormat:
-#     print("a")
-#     if OPENAI_API_KEY is not None:
-#         models_info = await get_open_ai_models(OPENAI_API_KEY)
-#     else:
-#         raise RuntimeError("❌ ERROR: 'API_KEY' environment variable is missing!")
-#     target_ids = [
-#         "gpt-4o",
-#         "gpt-4-turbo",
-#         "gpt-4o-mini",
-#     ]
-#     models_info = filter_models_by_id(models_info, target_ids)
-#     return models_info
 
 
 # Chat completions endpoint
