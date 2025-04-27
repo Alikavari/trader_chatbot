@@ -61,11 +61,11 @@ def transfer(destination_wallet_address: str, value: int):
     Args:
         destination_wallet_address (str): the destination wallet address starts with 0x
         value: The amount value that will be transfer
-    Retruns:
-        True (success) or False (Failed)
+    Retruns (str):
+        The transfer report
     """
 
-    return True
+    return "success"
 
 
 # def get_user_info(address: str):

@@ -20,6 +20,7 @@ class ModelOutput(BaseModel):
     content: str
     tool_name: str | None = None
     args: dict[str, Any] | None = None
+    id: str | None = None
 
 
 class Agent:
@@ -34,30 +35,24 @@ class Agent:
         self.read_tools = read_tools
         self.write_tools = write_tools
 
-    async def ainvoke(self, messages: List[ModelMessage]) -> ModelOutput:
+    async def ainvoke(self, messages: List[ModelMessage]) -> tuple[str, dict]:
         output = await self.model_with_tools.ainvoke(messages)
         messages.append(output)
         tool_calls = getattr(output, "tool_calls", None)
+        content = cast(str, output.content)
         if tool_calls is None or len(tool_calls) == 0:  # normal_messages
-            content = cast(str, output.content)
-            return ModelOutput(content=content)
+
+            return content, output.additional_kwargs
         else:
             tool_call = tool_calls[0]
             tool_name = tool_call["name"].lower()
             if tool_name in self.write_tools:  # for write tools
                 selected_tool = self.write_tools[tool_name]
-                tool_args = tool_call["args"]
-                rendered_content = render_md(
-                    f"pls confirm the information bellow in order to {tool_name}",
-                    tool_args,
-                    "",
-                )
-                return ModelOutput(
-                    content=rendered_content, tool_name=tool_name, args=tool_args
-                )
+
+                return (content, output.additional_kwargs)
             selected_tool = self.read_tools[tool_name]  # for read tools
             tool_msg = await selected_tool.ainvoke(tool_call)
             messages.append(tool_msg)
             output = await self.model_with_tools.ainvoke(messages)
             content = cast(str, output.content)
-            return ModelOutput(content=content)
+            return (content, output.additional_kwargs)

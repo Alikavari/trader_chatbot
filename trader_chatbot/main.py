@@ -87,12 +87,20 @@ async def generate_stream_response(
     print(messages)
     agent_message = wrapper.wrap_messages_for_agent(messages)
 
-    response = await agent.ainvoke(agent_message)
+    response, kwargs = await agent.ainvoke(agent_message)
+    str_kwargs = kwargs.__str__()
+    print(str_kwargs)
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
         model=model_name,
-        choices=[StreamChoice(delta={"content": f"{ response.model_dump_json()} "})],  #
+        choices=[
+            StreamChoice(
+                delta={
+                    "content": f"{ response + f"\n\n##ADDITIONAL_KWARGS=={str_kwargs}"} "
+                }
+            )
+        ],  #
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 

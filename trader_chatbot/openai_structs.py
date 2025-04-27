@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 
 
 # v1/chat/completion  Stream Response Structs
 class Message(BaseModel):
-    role: Literal["user", "assistant", "system", "hideUser"]
+    role: Literal["user", "assistant", "system", "hideUser", "metaMask"]
     content: str
     refusal: Optional[str] = None
 
