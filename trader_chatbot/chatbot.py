@@ -15,12 +15,17 @@ from langchain_core.messages import (
 from pydantic import BaseModel, Field
 from typing import cast
 
+# class FunctionInfo(BaseModel):
 
-class ModelOutput(BaseModel):
-    content: str
-    tool_name: str | None = None
-    args: dict[str, Any] | None = None
-    id: str | None = None
+# class ToolInfo(BaseModel):
+#     id: str
+#     function: Any
+#     type: Literal["function"]
+
+
+# class KwArgs(BaseModel):
+#     tool_calls = list[ToolInfo] | None
+#     refusal: Any = None
 
 
 class Agent:

@@ -55,16 +55,44 @@ async def wellcome_message(address: str):
 
 
 @tool
-def transfer(destination_wallet_address: str, value: int):
+def transfer(destinationWalletAddress: str, value: int):
     """
-    This function is used for tranfering some coin to a wallet address
+    This function is used for tranfering some muon coin to a wallet address
     Args:
-        destination_wallet_address (str): the destination wallet address starts with 0x
+        destinationWalletAddress (str): the destination wallet address starts with 0x
         value: The amount value that will be transfer
     Retruns (str):
-        The transfer report
+        The transfer report in (str)
     """
 
+    return "success"
+
+
+@tool
+def approve(spenderAddress: str, value: int):
+    """
+    This function is used for approving some muon coin to a spender. (this function calls a web3 transaction )
+    Args:
+        spenderAddress (str): the destination spender address starts with 0x
+        value: The amount value that will be approve
+    Retruns (str):
+        The transaction report in (str)
+    """
+    return "success"
+
+
+@tool
+def add_node(nodeIp: str, nodeAddress: str, peerID: str, amount: int):
+    """
+    This function add a node on muon chian
+    Arge:
+        nodeIP (str): The Ip of node
+        nodeAddress (str) The stakerWalletAddress,
+        peerId (str):
+        amout (int): the stakeamount
+    Returns (str):
+        The transaction report in (str)
+    """
     return "success"
 
 
