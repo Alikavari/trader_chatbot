@@ -38,6 +38,9 @@ from trader_chatbot.tool_functions import (
     transfer,
     approve,
     add_node,
+    unstake,
+    boost,
+    claim,
 )
 
 
@@ -73,7 +76,14 @@ read_tools = {
     "wellcome_message": wellcome_message,
     "get_balance": get_balance,
 }
-write_tools = {"transfer": transfer, "approve": approve, "add_node": add_node}
+write_tools = {
+    "transfer": transfer,
+    "approve": approve,
+    "add_node": add_node,
+    "unstake": unstake,
+    "boost": boost,
+    "claim": claim,
+}
 
 
 model = init_chat_model("gpt-4o", model_provider="openai")

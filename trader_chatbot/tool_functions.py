@@ -69,11 +69,10 @@ def transfer(destinationWalletAddress: str, value: int):
 
 
 @tool
-def approve(spenderAddress: str, value: int):
+def approve(value: int):
     """
     This function is used for approving some muon coin to a spender. (this function calls a web3 transaction )
     Args:
-        spenderAddress (str): the destination spender address starts with 0x
         value: The amount value that will be approve
     Retruns (str):
         The transaction report in (str)
@@ -87,13 +86,60 @@ def add_node(nodeIp: str, nodeAddress: str, peerID: str, amount: int):
     This function add a node on muon chian
     Arge:
         nodeIP (str): The Ip of node
-        nodeAddress (str) The stakerWalletAddress,
+        nodeAddress (str) The nodeWalletAddress,
         peerId (str):
         amout (int): the stakeamount
     Returns (str):
         The transaction report in (str)
     """
     return "success"
+
+
+@tool
+def unstake(amount: int):
+    """
+    This function unstake the node on muon chian
+    Arge:
+        amount (int): The Ip of node
+    Returns (str):
+        The transaction report in (str)
+    """
+    return "success"
+
+
+@tool
+def allowance(ownerAddress, spenderAddress):
+    """
+    checks how much muon owner  approved for spender
+    Args:
+        ownerAddress (str): its user wallet address
+        spenderAddress (str): the spender address. (it starts with 0x)
+    Returns (str):
+        the  transaction report
+    """
+    return "0"
+
+
+@tool
+def boost(amount):
+    """
+    increase the stakeamount of added node
+    Args:
+        amount (int): the boost amount (in MUON $)
+    Returns (str):
+    the  transaction report
+    """
+    return "0"
+
+
+@tool
+def claim():
+    """
+    claims the unstaked coins
+    Returns (str):
+    the  transaction report
+    """
+    return "0"
 
 
 # def get_user_info(address: str):
