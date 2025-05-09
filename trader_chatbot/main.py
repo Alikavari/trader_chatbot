@@ -33,7 +33,6 @@ from trader_chatbot.openai_structs import (
 )  # Import correct type
 
 from trader_chatbot.tool_functions import (
-    get_balance,
     wellcome_message,
     transfer,
     approve,
@@ -42,10 +41,8 @@ from trader_chatbot.tool_functions import (
     boost,
     claim,
     node_info,
-    allowance,
-    getting_time,
     getting_requsted_unstaked_amount,
-    get_staked_amount,
+    get_variables,
 )
 
 
@@ -79,12 +76,9 @@ app.add_middleware(
 
 read_tools = {
     "wellcome_message": wellcome_message,
-    "get_balance": get_balance,
     "node_info": node_info,
-    "allowance": allowance,
-    "getting_time": getting_time,
     "getting_requsted_unstaked_amount": getting_requsted_unstaked_amount,
-    "get_staked_amount": get_staked_amount,
+    "get_variables": get_variables,
 }
 write_tools = {
     "transfer": transfer,

@@ -15,13 +15,20 @@ from trader_chatbot.abis.muon_node_manager import abi as node_manager_abi
 from trader_chatbot.abis.alice import abi as alice_abi
 
 from pydantic import BaseModel
-
+from typing import Literal
 
 # Connect to the Avalanche testnet RPC
 rpc_url = RPC_URLS["avalanche-fuji"]
 
 web3 = Web3(Web3.HTTPProvider(rpc_url))
-
+realTimeVariables = Literal[
+    "stakedAmount",
+    "nodePower",
+    "reward",
+    "balance",
+    "requestedUnstakedAmount",
+    "allownce",
+]
 
 # Contract details
 alice_contract_address = Web3.to_checksum_address(ALICE_CONTRACT_ADDRESS)
@@ -40,12 +47,11 @@ async def getting_node_info(user_wallet_address: str):
     nodePower, _, _, _, tokenID = users.call()
     valueOfBondedToken = contract.functions.valueOfBondedToken(tokenID)
     stakedAmount = valueOfBondedToken.call()
-    balance = await getting_balance_web3(user_wallet_address)
+    balance = await getting_balance(user_wallet_address)
     contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
     decimals = contract.functions.decimals().call()
     decimalNodePower = from_bigint_to_decimal(nodePower, decimals)
     decimalStakeAmount = from_bigint_to_decimal(stakedAmount, decimals)
-    print("calling nodeInfo")
     return {
         "id": id,
         "stakerAddress": stakerAddress,
@@ -59,7 +65,31 @@ async def getting_node_info(user_wallet_address: str):
     }
 
 
-async def getting_balance_web3(address: str) -> int:
+def getting_requsted_unstaked_amount(userWalletAddress: str):
+    contract = web3.eth.contract(address=staking_contract_address, abi=node_staking_abi)
+    # Call the `users` function
+    row_rua = contract.functions.pendingUnstakes(userWalletAddress).call()
+    contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
+    decimals = contract.functions.decimals().call()
+    # Extract balance
+    decimal_requested_unstaked_amount = from_bigint_to_decimal(row_rua, decimals)
+    print("requsted_unstake: ", decimal_requested_unstaked_amount)
+    return decimal_requested_unstaked_amount
+
+
+def getting_allowance(ownerAddress):
+    contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
+    # Call the `users` function
+    raw_allowance = contract.functions.allowance(
+        ownerAddress, staking_contract_address
+    ).call()
+    decimals = contract.functions.decimals().call()
+    # Extract balance
+    decimal_allowance = from_bigint_to_decimal(raw_allowance, decimals)
+    return decimal_allowance
+
+
+async def getting_balance(address: str) -> int:
     # Load the contract
     contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
     # Call the `users` function
@@ -72,17 +102,45 @@ async def getting_balance_web3(address: str) -> int:
 
 
 @tool
-async def get_balance(walletAddress: str):
+async def get_variables(walletAddress: str, variableNames: list[realTimeVariables]):
     """
-    Function for getting user balnce.
+    Function for getting  realtime variables
     Args:
         walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-    Returns:
-        user balance in muon$ (int)
+        variableNames list[variableName] list of variables you need to their values
+    Return:
+        list[variableValue]
     """
-    decimal_balance = await getting_balance_web3(walletAddress)
-
-    return decimal_balance
+    print("calling get_variables", "variableNames: ", variableNames)
+    variables = []
+    for variableName in variableNames:
+        match variableName:
+            case "stakedAmount":  # for getting stakedAmount
+                print("\tcalling stakedAmount")
+                out = await getting_node_info(walletAddress)
+                variables.append(out["stakedAmount"])
+            case "nodePower":  # for getting nodePower
+                print("\tcalling nodePower")
+                out = await getting_node_info(walletAddress)
+                variables.append(out["nodePower"])
+            case "reward":
+                print("\tcalling reward")
+                variables.append(0)
+            case "balance":  # for gettting balance
+                print("\tcalling balance")
+                balance = await getting_balance(walletAddress)
+                variables.append(balance)
+            case "requestedUnstakedAmount":  # fro getting requestedUnstakedAmount
+                print("\tcalling requestedUnstakedAmount")
+                requestedUnstakedAmount = getting_requsted_unstaked_amount(
+                    walletAddress
+                )
+                variables.append(requestedUnstakedAmount)
+            case "allownce":  #                fro getting allowance
+                print("\tcalling allownce")
+                allownce = getting_allowance(walletAddress)
+                variables.append(allownce)
+    return variables
 
 
 @tool
@@ -114,27 +172,14 @@ async def node_info(walletAddress: str):
     return f"the user node info is {node_info} show it in markdown tabel to user"
 
 
-@tool
-async def get_staked_amount(walletAddress: str):
-    """
-    you can get realtime staked_amount parameter value form this function
-    Args:
-        walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-    Returns:
-        (int) stakedamount value
-    """
-    print("calling unstake amount")
-    node_info = await getting_node_info(walletAddress)
-    return node_info["stakedAmount"]
-
-
+# ---------  write functions
 @tool
 def transfer(destinationWalletAddress: str, value: int):
     """
-    This function is used for tranfering some muon coin to a wallet address
+    This function is used for tranfering some muon coin to a wallet address t
     Args:
         destinationWalletAddress (str): an Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-        value: The amount that will be transfer
+        value: The amount that will be transfer (Important node: the transfer value should be equal or less than balnce before calling this function compare the transfer value and realtime balance)
     Retruns (str):
         The transfer report in (str)
     """
@@ -183,28 +228,6 @@ def unstake(amount: int):
 
 
 @tool
-def allowance(ownerAddress):
-    """
-    checks how much muon owner  approved for spender
-    Args:
-        ownerAddress (str): its user wallet address
-        spenderAddress (str): the spender address. (it starts with 0x)
-    Returns (str):
-        the  transaction report contains allownce in muon$
-    """
-    contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
-    # Call the `users` function
-    raw_allowance = contract.functions.allowance(
-        ownerAddress, staking_contract_address
-    ).call()
-    decimals = contract.functions.decimals().call()
-    # Extract balance
-    decimal_allowance = from_bigint_to_decimal(raw_allowance, decimals)
-    print("calling allowance")
-    return f"decimal_allowance: {decimal_allowance}"
-
-
-@tool
 def boost(amount):
     """
     increase the stakeamount of added node (important note: for boosting first check the balnce the balnce should be equal or more than boost value, dont call boost if balnce is insufficient. after that, check allowance, if allowance is less than boost value, call approve fist and explain[while calling approve] to user why approvemnet is needed)
@@ -225,38 +248,3 @@ def claim():
     the  transaction report
     """
     return "0"
-
-
-@tool
-def getting_time():
-    """
-    function for getting utc time (clock)
-    if user want about time you can call this functio, this function give you utc time
-    Returns:
-        string contains utc time
-    """
-    # Get current UTC time
-    utc_time = datetime.now(timezone.utc)
-
-    # Print it in ISO format
-    return f"UTC Time: {utc_time.isoformat()}"
-
-
-@tool
-def getting_requsted_unstaked_amount(userWalletAddress: str):
-    """
-    function for getting requested unstaked amount variable.
-    Args:
-        userWalletAddress:
-    Returns:
-     requested unstaked amount (int)
-    """
-    contract = web3.eth.contract(address=staking_contract_address, abi=node_staking_abi)
-    # Call the `users` function
-    row_rua = contract.functions.pendingUnstakes(userWalletAddress).call()
-    contract = web3.eth.contract(address=alice_contract_address, abi=alice_abi)
-    decimals = contract.functions.decimals().call()
-    # Extract balance
-    decimal_requested_unstaked_amount = from_bigint_to_decimal(row_rua, decimals)
-    print("requsted_unstake: ", decimal_requested_unstaked_amount)
-    return decimal_requested_unstaked_amount
