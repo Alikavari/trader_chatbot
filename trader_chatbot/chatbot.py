@@ -55,9 +55,17 @@ class Agent:
                 selected_tool = self.write_tools[tool_name]
 
                 return (content, output.additional_kwargs)
-            selected_tool = self.read_tools[tool_name]  # for read tools
-            tool_msg = await selected_tool.ainvoke(tool_call)
-            messages.append(tool_msg)
-            output = await self.model_with_tools.ainvoke(messages)
+            while tool_name in self.read_tools:
+                selected_tool = self.read_tools[tool_name]  # for read tools
+                tool_msg = await selected_tool.ainvoke(tool_call)
+                messages.append(tool_msg)
+                output = await self.model_with_tools.ainvoke(messages)
+                messages.append(output)
+                tool_calls = getattr(output, "tool_calls", None)
+                content = cast(str, output.content)
+                if tool_calls is None or len(tool_calls) == 0:  # normal_messages
+                    return content, output.additional_kwargs
+                tool_call = tool_calls[0]
+                tool_name = tool_call["name"].lower()
             content = cast(str, output.content)
             return (content, output.additional_kwargs)

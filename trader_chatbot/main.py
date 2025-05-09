@@ -41,6 +41,11 @@ from trader_chatbot.tool_functions import (
     unstake,
     boost,
     claim,
+    node_info,
+    allowance,
+    getting_time,
+    getting_requsted_unstaked_amount,
+    get_staked_amount,
 )
 
 
@@ -75,6 +80,11 @@ app.add_middleware(
 read_tools = {
     "wellcome_message": wellcome_message,
     "get_balance": get_balance,
+    "node_info": node_info,
+    "allowance": allowance,
+    "getting_time": getting_time,
+    "getting_requsted_unstaked_amount": getting_requsted_unstaked_amount,
+    "get_staked_amount": get_staked_amount,
 }
 write_tools = {
     "transfer": transfer,
@@ -96,12 +106,10 @@ async def generate_stream_response(
 ) -> AsyncGenerator[str, None]:
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
-    print(messages)
     agent_message = wrapper.wrap_messages_for_agent(messages)
 
     response, kwargs = await agent.ainvoke(agent_message)
     str_kwargs = kwargs.__str__()
-    print(str_kwargs)
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
