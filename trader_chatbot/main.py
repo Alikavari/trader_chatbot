@@ -41,8 +41,9 @@ from trader_chatbot.tool_functions import (
     boost,
     claim,
     node_info,
-    getting_requsted_unstaked_amount,
     get_variables,
+    get_claimable_epoch,
+    claim_reward,
 )
 
 
@@ -77,8 +78,8 @@ app.add_middleware(
 read_tools = {
     "wellcome_message": wellcome_message,
     "node_info": node_info,
-    "getting_requsted_unstaked_amount": getting_requsted_unstaked_amount,
     "get_variables": get_variables,
+    "get_claimable_epoch": get_claimable_epoch,
 }
 write_tools = {
     "transfer": transfer,
@@ -87,10 +88,11 @@ write_tools = {
     "unstake": unstake,
     "boost": boost,
     "claim": claim,
+    "claim_reward": claim_reward,
 }
 
 
-model = init_chat_model("gpt-4o", model_provider="openai")
+model = init_chat_model("gpt-4o", model_provider="openai", temperature=0)
 agent = Agent(model, read_tools, write_tools)
 
 

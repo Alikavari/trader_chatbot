@@ -244,6 +244,8 @@ python-dotenv==1.0.1
     # via uvicorn
 python-multipart==0.0.20
     # via fastapi
+pytz==2025.2
+    # via trader-chatbot
 pyunormalize==16.0.0
     # via web3
 pyyaml==6.0.2
@@ -251,6 +253,8 @@ pyyaml==6.0.2
     # via langchain-community
     # via langchain-core
     # via uvicorn
+pyzt==0.0.2
+    # via trader-chatbot
 regex==2024.11.6
     # via parsimonious
     # via tiktoken
@@ -299,6 +303,7 @@ tqdm==4.67.1
     # via openai
 typer==0.15.1
     # via fastapi-cli
+    # via pyzt
 types-requests==2.32.0.20241016
     # via web3
 typing-extensions==4.12.2

@@ -37,7 +37,10 @@ class MessageWrapper:
         self.prompt = read_prompt()
 
     def wrap_messages_for_agent(self, messages: list[Message]) -> list[ModelMessage]:
-        model_messages: list[ModelMessage] = [SystemMessage(self.prompt)]
+        model_messages: list[ModelMessage] = [
+            SystemMessage(self.prompt),
+            SystemMessage(content="user still dont connet their wallet address"),
+        ]
         for message in messages:
             text_part, dict_part = decompose_message(message.content)
             if message.role == "assistant":
