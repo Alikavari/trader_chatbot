@@ -1,12 +1,17 @@
 from pydantic import BaseModel
-from typing import Optional, Literal, Any
+from typing import Optional, Literal, Any, List
 
 
 # v1/chat/completion  Stream Response Structs
 class Message(BaseModel):
-    role: Literal["user", "assistant", "system", "hideUser", "metaMask"]
+    role: Literal[
+        "user", "assistant", "system", "hideUser", "hideAssistant", "metaMask", "tool"
+    ]
     content: str
     refusal: Optional[str] = None
+    tool_calls: List[Any] | None = None
+    name: str | None = None
+    tool_call_id: str | None = None
 
 
 class NormalChoice(BaseModel):

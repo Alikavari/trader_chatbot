@@ -20,6 +20,9 @@ dependencies    = [
     "black>=25.1.0",
     "pyzt>=0.0.2",
     "pytz>=2025.2",
+    "databases>=0.9.0",
+    "aiosqlite>=0.21.0",
+    "sqlmodel>=0.0.24",
     # Add black here
 ]
 

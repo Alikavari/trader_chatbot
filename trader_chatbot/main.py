@@ -20,7 +20,7 @@ from typing import Any, List, TypedDict, cast
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from trader_chatbot.chatbot import Agent, ModelMessage
+from trader_chatbot.chatbot import Agent, ModelMessage, ResMessageModel
 from trader_chatbot.openai_structs import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -33,24 +33,32 @@ from trader_chatbot.openai_structs import (
 )  # Import correct type
 
 from trader_chatbot.tool_functions import (
-    wellcome_message,
+    get_variables,
+    climable_time,
     transfer,
     approve,
     add_node,
     unstake,
-    boost,
     claim,
-    node_info,
-    get_variables,
-    get_claimable_epoch,
     claim_reward,
+    boost,
+    handle_wallet_connect,
+    chek_for_adding_node,
 )
+import json
+
+# from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 
 
 # Consts
 HIGHLIGHT = "\033[1;43m"  # Yellow background with bold text
 RESET = "\033[0m"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+class Wallet(BaseModel):
+    wallet_address: str
+    token_usage: int
 
 
 load_dotenv()
@@ -62,8 +70,34 @@ models_dict: dict[str, Any] = {
     "gpt-4o-mini": None,
 }
 
+from databases import Database
+from sqlalchemy import MetaData, Table, Column, String, BigInteger
+
+DATABASE_URL = "sqlite:///./wallet.db"
+
+database = Database(DATABASE_URL)
+metadata = MetaData()
+
+# Define the table schema
+user_wallet = Table(
+    "user_wallet",
+    metadata,
+    Column("user_wallet_address", String, primary_key=True),
+    Column("token_usage", BigInteger),
+)
+
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await database.connect()
+    yield
+    await database.disconnect()
+
+
 wrapper = MessageWrapper()
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # CORS middleware setup
 app.add_middleware(
@@ -76,24 +110,30 @@ app.add_middleware(
 
 
 read_tools = {
-    "wellcome_message": wellcome_message,
-    "node_info": node_info,
     "get_variables": get_variables,
-    "get_claimable_epoch": get_claimable_epoch,
+    "climable_time": climable_time,
+    "chek_for_adding_node": chek_for_adding_node,
+    # "handle_wallet_connect": handle_wallet_connect,
 }
 write_tools = {
     "transfer": transfer,
     "approve": approve,
     "add_node": add_node,
     "unstake": unstake,
-    "boost": boost,
     "claim": claim,
     "claim_reward": claim_reward,
+    "boost": boost,
 }
 
 
-model = init_chat_model("gpt-4o", model_provider="openai", temperature=0)
-agent = Agent(model, read_tools, write_tools)
+gpt_mini = init_chat_model("gpt-4o-mini", model_provider="openai", temperature=0)
+# llama_8b = init_chat_model("llama3.1:8b", model_provider="ollama")
+agent = Agent(gpt_mini, gpt_mini, read_tools, write_tools, database, user_wallet)
+
+# from trader_chatbot.database import database  # your Database() instance
+
+
+# from models import WalletTable
 
 
 # Function to generate streamed responses in the desired format
@@ -102,21 +142,17 @@ async def generate_stream_response(
 ) -> AsyncGenerator[str, None]:
     unique_id = str(uuid.uuid4())  # Unique request ID
     timestamp = int(time.time())  # Current timestamp
+
     agent_message = wrapper.wrap_messages_for_agent(messages)
 
-    response, kwargs = await agent.ainvoke(agent_message)
-    str_kwargs = kwargs.__str__()
+    responses = await agent.ainvoke(agent_message)
+    json_data = json.dumps([response.model_dump() for response in responses])
+
     chunk = ChatCompletionChunk(
         id="chatcmpl-AvPUCpUAdofwp2ePGw0bSHL1USHZ1",
         created=timestamp,
         model=model_name,
-        choices=[
-            StreamChoice(
-                delta={
-                    "content": f"{ response + f"\n\n##ADDITIONAL_KWARGS=={str_kwargs}"} "
-                }
-            )
-        ],  #
+        choices=[StreamChoice(delta={"content": f"{ json_data} "})],  #
     )
     yield f"data: {chunk.model_dump_json()}\n\n"  # SSE format
 
@@ -147,6 +183,8 @@ async def v1_chat_comletions(
 ) -> Response:
     if request.stream == True:  # if clinet needs stream response
         # Handle streaming response
+        print("requestMessages: ", request.messages)
+
         async def stream_response():
             async for chunk in generate_stream_response(
                 request.messages,
@@ -204,4 +242,4 @@ async def list_models() -> GptModelResponseFormat:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

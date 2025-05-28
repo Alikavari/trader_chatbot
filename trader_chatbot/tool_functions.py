@@ -2,13 +2,16 @@ from langchain.tools import tool
 
 from pydantic import BaseModel
 from typing import Literal
-
+from typing import Annotated
+import time
 from trader_chatbot.web3_read_functions import (
     getting_allowance,
     getting_balance,
     getting_node_info,
     getting_requsted_unstaked_amount,
     getting_claimable_time,
+    getting_reward_balance,
+    has_node,
 )
 
 realTimeVariables = Literal[
@@ -21,216 +24,253 @@ realTimeVariables = Literal[
 ]
 
 
+# @tool
+# async def get_variables(
+#     walletAddress: Annotated[str, "User Ethereum wallet address"],
+#     variableNames: Annotated[list[str], "List required variable names"],
+# ):
+#     """
+#     Function for getting MUON variables
+#     """
+#     return [100]
+
+
 @tool
-async def get_variables(walletAddress: str, variableNames: list[realTimeVariables]):
+async def handle_wallet_connect(
+    userWalletAddress: str,
+    user_UTC_hour_shift: int,
+    user_UTC_min_shift: int,
+):
+    "This function is run when user connect its wallet address"
+    print("calling handle wallet connection event")
+    node_info = await getting_node_info(userWalletAddress)
+    if node_info["nodeId"] == 0:
+        return f"Event: The user connect its wallet right now, Thank the user sincerely for connecting the wallet . The user has not added a node yet. Guide the user if they want to add a node. the user balance is {node_info['balance']} show the balnce to user"
+    print(f"\n\n{node_info}")
+
+    climable_time = await hr_climble_time(
+        userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
+    )
+    print("climableTime:", climable_time)
+    return (
+        f"Thank user for connecting wallet; display {node_info.keys()} {node_info} parameters in a markdown table \n "
+        + climable_time
+    )
+
+
+@tool
+async def get_variables(
+    userWalletAddress: Annotated[str, "User Ethereum wallet address"],
+    variableNames: Annotated[list[str], "List required variable names"],
+    user_UTC_hour_shift: int,
+    user_UTC_min_shift: int,
+):
     """
-    Function for getting  realtime variables
-    Args:
-        walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-        variableNames list[variableName] list of variables you need to their values
-    Return:
-        list[variableValue]
+    Function for getting MUON variables
     """
     print("calling get_variables", "variableNames: ", variableNames)
     variables = []
+    out = await getting_node_info(userWalletAddress)
     for variableName in variableNames:
         match variableName:
             case "stakedAmount":  # for getting stakedAmount
                 print("\tcalling stakedAmount")
-                out = await getting_node_info(walletAddress)
                 variables.append(out["stakedAmount"])
             case "nodePower":  # for getting nodePower
                 print("\tcalling nodePower")
-                out = await getting_node_info(walletAddress)
                 variables.append(out["nodePower"])
+            case "nodeID":
+                variables.append(out["nodeId"])
+            case "nodeAddress":
+                variables.append(out["nodeAddress"])
             case "rewardBalance":
                 print("\tcalling reward")
-                variables.append(100)
+                reward_balance = getting_reward_balance(userWalletAddress)
+                variables.append(reward_balance)
             case "balance":  # for gettting balance
                 print("\tcalling balance")
-                balance = await getting_balance(walletAddress)
+                balance = await getting_balance(userWalletAddress)
+                print("balance: ", balance)
                 variables.append(balance)
-            case "requestedUnstakedAmount":  # for getting requestedUnstakedAmount
-                print("\tcalling requestedUnstakedAmount")
-                requestedUnstakedAmount = getting_requsted_unstaked_amount(
-                    walletAddress
-                )
-                variables.append(requestedUnstakedAmount)
+            case "unstakeBalance":  # for getting requestedUnstakedAmount
+                print("\tcalling unstakeBalance")
+                unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+                variables.append(unstakeBalance)
             case "allownce":  # for getting allowance
                 print("\tcalling allownce")
-                allownce = getting_allowance(walletAddress)
+                allownce = getting_allowance(userWalletAddress)
                 variables.append(allownce)
-            case "tier":  # for getting tier
-                print("\ncalling tier")
-                out = await getting_node_info(walletAddress)
+            case "nodeStatus":
+                print("\tcalling nodeStatus")
+                variables.append(out["active"])
+            case "tier":
+                print("\t calling tier")
                 variables.append(out["tier"])
+            case "peerID":
+                print("\r calling peerID")
+                variables.append(out["peerID"])
     return variables
 
 
-@tool
-async def wellcome_message(
-    walletAddress: str,
-    user_UTC_hour_shift: int,
-    user_UTC_min_shift: int,
-    user_message_time_stamp: int,
+async def hr_climble_time(
+    userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int
 ):
-    """
-    A function to welcome and show some informatios to the user when user entered to chatbot .
-    Args:
-        walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-        user_UTC_hour_shift (int): user local time hour
-        user_UTC_min_shift (int): user local time min
-        user_message_time_stamp (int): timestamp in the user message
-    Returns:
-        A string containing how the model should greet the user. (The audience for this report is you)
-    """
-    claiming_annoance = ""
-    node_info = await getting_node_info(walletAddress)
-    if node_info["pendingForClaim"] > 0:
-        _, hr_claiming_time = getting_claimable_time(
-            walletAddress, user_UTC_hour_shift, user_UTC_min_shift
+    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    if unstakeBalance <= 0:
+        return "nothing available to claim"
+
+    current_epoch = int(time.time())
+    claimable_time, hr_claimable_time = getting_claimable_time(
+        userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
+    )
+    if current_epoch >= claimable_time:
+        return (
+            # f"you cannot get your claim balacen right now, try agian in {hr_claimable_time}",
+            "User can get their unstake balance right now"
         )
-        claimable_time = getting_claimable_time(
-            walletAddress, user_UTC_hour_shift, user_UTC_min_shift
-        )[0]
-        canClaimStake = user_message_time_stamp > claimable_time
-        if canClaimStake == True:
-            claiming_annoance = "The user can claim their unstaked assets right now"
-        else:
-            claiming_annoance = (
-                "The user can claim their unstaked assets at" + hr_claiming_time
-            )
-
-    if node_info["nodeId"] == 0:
-        return f"Event: The user connect its wallet right now, Thank the user sincerely for connecting the wallet . The user has not added a node yet. Guide the user if they want to add a node. the user balance is {node_info['balance']} show the balnce to user"
-
-    return (
-        f"Event: The user connect its wallet right now, Thank the user sincerely for connecting the wallet and show them these info in markdown table[parameters in left side of table and values in right side of table] (balance, nodepower,pending for claim and staked amount are in MUON$ and other paremeters doesnot have unit) {node_info}, "
-        + claiming_annoance
-    )
+    else:
+        return "User can  get their unstake balance on {user_UTC_min_shift}"
 
 
 @tool
-async def node_info(walletAddress: str):
-    """
-    This function should be call when user wants to see their node_status/node_info
-    Args:
-        walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-    Returns:
-        node status report (str)
-    """
-    node_info = await getting_node_info(walletAddress)
-    return f"the user node info is {node_info} show it in markdown tabel to user"
+async def climable_time(
+    userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int
+):
+    """fuction for getting climalbe time"""
+    print("calling climable_time")
+    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    if unstakeBalance <= 0:
+        return "nothing available to claim"
 
-
-@tool
-def get_claimable_epoch(
-    walletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int
-) -> tuple[int, str]:
-    """
-    Returns the claimable epoch time (in seconds) when a user can claim their unstaked amount.
-    you should compare the  returned value of this function and timestamp flag of user message for underestanding that user can claim unstaked amount or not
-    Args:
-        walletAddress (str): User Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-        user_UTC_hour_shift (int): user local time hour
-        user_UTC_min_shift (int): user local time min
-    Returns tuple[int, str]:
-        int: The epoch time in seconds when the user is eligible to claim their unstaked amount.
-        str:Human-readable promised time for claiming (used to notify the user if the claiming time has not yet been reached)
-    """
-    claimable_unstake_time, hr_claimable_time = getting_claimable_time(
-        walletAddress, user_UTC_hour_shift, user_UTC_min_shift
+    current_epoch = int(time.time())
+    claimable_time, hr_claimable_time = getting_claimable_time(
+        userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
     )
-    print("claimable_unstake_time: ", claimable_unstake_time)
-    print("timezone: ", user_UTC_hour_shift, ":", user_UTC_min_shift)
-    return claimable_unstake_time, hr_claimable_time
+    if current_epoch >= claimable_time:
+        return (
+            # f"you cannot get your claim balacen right now, try agian in {hr_claimable_time}",
+            "User can get your unstake balance right now"
+        )
+    else:
+        return "User can  get your unstake balance on {user_UTC_min_shift}"
 
 
 # ---------  write functions
 @tool
-def transfer(destinationWalletAddress: str, value: int):
+async def transfer(userWalletAddress: str, destinationWalletAddress: str, amount: int):
     """
-    This function is used for tranfering some muon coin to a wallet address t
-    Args:
-        destinationWalletAddress (str): an Ethereum wallet address begins with '0x' and is followed by 40 hexadecimal characters, consisting of digits (0–9) and letters (a–f).
-        value: The amount that will be transfer (Important node: the transfer value should be equal or less than balnce before calling this function compare the transfer value and realtime balance)
-    Retruns (str):
-        The transfer report in (str)
+    Function transfers MUON coins to a wallet address
     """
-
-    return "success"
+    print("calling transfer")
+    balance = await getting_balance(userWalletAddress)
+    if amount > balance:
+        return "Transfer failed due to insufficient balance", False
+    return "success", True
 
 
 @tool
-def approve(value: int):
-    """
-    This function is used for approving some muon coin to a spender. (this function calls a web3 transaction )
+async def boost(userWalletAddress: str, amount: int):
+    """boosting some amount to node"""
+    # return f"boosting failed due to insufficient allowacne first auto-run  the approve {amount} without user permission then call boost"
+    print("calling boost")
+    allownce = getting_allowance(userWalletAddress)
+    balance = await getting_balance(userWalletAddress)
+    print("balance:", balance)
+    print("amount: ", amount)
+    if amount > balance:
+        return "boosting failed due to insufficient balance", False
+    if amount > allownce:
+        return (
+            f"Boosting failed due to low allowance run approve({amount}) with no user confirmation. Explain why approval is needed before boosting.",
+            False,
+        )
 
-    Args:
-        value: The amount value that will be approve (Replaced with current allowance amount, not cumulative.)
-    Retruns (str):
-        The transaction report in (str)
-    """
-    return "success"
-
-
-@tool
-def add_node(nodeIp: str, nodeAddress: str, peerID: str, amount: int):
-    """
-    This function add a node on muon chian (Important: adding node needs allowance check and balance check both allowance and balance should be equal or more than stakeamount of adding node if balnce is insufficent user should buy coin if allowance is not sufficient approve appropriate coin for user   )
-    Arge:
-        nodeIP (str): The Ip of node
-        nodeAddress (str) The nodeWalletAddress,
-        peerId (str): libp2p peerID format (warm the user if the entered peerID by user did not follow correct format)
-        amout (int): the stakeamount (this field should be more than 500, if user ented value less than 500 you should warn the user to enter valid amount)
-    Returns (str):
-        The transaction report in (str)
-    """
-    return "success"
+    return "boosting done success", True
 
 
 @tool
-def unstake(amount: int):
+async def approve(userWalletAddress: str, amount: int):
     """
-    This function unstakes some muon coin from node (fist check staked amount [dont rely the staked amount on chathistory check it from get_staked_amount funciton everytime you are calling unstake]. the amount user wants to unstake should be less or equal than stakedamount variable)
-    Arge:
-        amount (int): the value that user wants to unstake
-    Returns (str):
-        The transaction report in (str)
+    approves MUON coins for a spender
     """
-    return "success"
+    print("calling approve")
+    balance = await getting_balance(userWalletAddress)
+    print("balance:", balance)
+    if amount > balance:
+        return "approving failed due to insufficient balance", False
+    return "success", True
 
 
 @tool
-def boost(amount):
-    """
-    increase the stakeamount of added node
-    important note:
-        Before performing a boost operation, first check the blance and allowance variables blance and allownce should be more than boost value, if allownce is not sufficient do approve user should know why approve is calling before boost
-    Args:
-        amount (int): the boost amount (in MUON $)
-    Returns (str):
-    the  transaction report
-    """
-    return "0"
+async def chek_for_adding_node(userWalletAddress: str):
+    """should run before adding node"""
+    if has_node(userWalletAddress) != 0:
+        return "Adding node failed—node already set up, cannot add again."
 
 
 @tool
-def claim():
+async def add_node(
+    userWalletAddress: str, nodeIp: str, nodeAddress: str, peerID: str, amount: int
+):
     """
-    claims requested unstaked amount for calling this funciton reuqsted_unstaked_amount should be more than 0 (dont run it if requested_unstaked_amount is 0)
-    claiming can be done when TIMESTAMP_FLAG was was more than claimabel epoch time
-    Returns (str):
-    the  transaction report
+    This function add a node on muon chian
     """
-    return "0"
+    balance = await getting_balance(userWalletAddress)
+    if amount > balance:
+        return "Adding node failed due to insufficient balance", False
+
+    allownce = getting_allowance(userWalletAddress)
+    if amount > allownce:
+        return (
+            f"Adding node failed due to low allowance first run approve({amount}) with no user confirmation. Explain why approval is needed before boosting. then boost",
+            False,
+        )
+
+    return "", True
 
 
 @tool
-def claim_reward():
+async def unstake(userWalletAddress: str, amount: int):
     """
-    claims reward (if availabe)
-    fist check rewardBalance, if there is anything to claim, run this funcion.
-    Returns (str):
-    the  transaction report
+    This function unstakes some muon coin from node
     """
+    print("calling unstake")
+    out = await getting_node_info(userWalletAddress)
+    if amount > out["stakedAmount"]:
+        return "Unstake failed—amount must be less than staked amount", False
+    return "success", True
+
+
+@tool
+def claim(userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int):
+    """
+    claims unstake balance
+    """
+    print("calling claim")
+    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    print(unstakeBalance)
+    if unstakeBalance <= 0:
+        print("the if condition is runed")
+        return "Operation failed—nothing available to claim", False
+    claimable_time, hr_claimable_time = getting_claimable_time(
+        userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
+    )
+    current_epoch = int(time.time())
+    if current_epoch < claimable_time:
+        return (
+            f"you cannot get your claim balacen right now, try agian in {hr_claimable_time}",
+            False,
+        )
+    return "success", True
+
+
+@tool
+def claim_reward(userWalletAddress: str):
+    """
+    claims reward
+    """
+    print("calling claiming reward")
+    rewardBalance = getting_reward_balance(userWalletAddress)
+    if rewardBalance <= 0:
+        return "Operation failed, no reward to claim.", False
+    return "success", True

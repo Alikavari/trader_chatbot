@@ -39,23 +39,36 @@ class MessageWrapper:
     def wrap_messages_for_agent(self, messages: list[Message]) -> list[ModelMessage]:
         model_messages: list[ModelMessage] = [
             SystemMessage(self.prompt),
-            SystemMessage(content="user still dont connet their wallet address"),
+            # SystemMessage(content="user still dont connet their wallet address"),
         ]
-        for message in messages:
-            text_part, dict_part = decompose_message(message.content)
-            if message.role == "assistant":
-                model_messages.append(
-                    AIMessage(content=text_part, additional_kwargs=dict_part)
-                )
-            elif message.role == "user" or message.role == "hideUser":
+        for idx, message in enumerate(messages):
+            # text_part, dict_part = decompose_message(message.content)
+
+            if message.role == "assistant" or message.role == "hideAssistant":
+                print("the tool_calls:\n", message.tool_calls)
+                if message.tool_calls == None:
+                    model_messages.append(AIMessage(content=message.content))
+                else:
+                    model_messages.append(
+                        AIMessage(
+                            content=message.content, tool_calls=message.tool_calls
+                        )
+                    )
+                if idx > 0 and messages[idx - 1].role == "hideUser":
+                    model_messages.pop()
+            elif message.role == "user":
                 model_messages.append(HumanMessage(content=message.content))
-            elif message.role == "metaMask":
-                print("the dict part", dict_part)
-                function_name = dict_part["tool_calls"][0]["function"]["name"]
-                call_id = dict_part["tool_calls"][0]["id"]
+            elif message.role == "hideUser":
+                model_messages[0].content += "\n" + message.content
+                print("prompt content", model_messages[0].content)
+                # model_messages.append(HumanMessage(content=message.content))
+            elif message.role == "tool":
+                print("ffffff:\n", message.name)
                 model_messages.append(
                     ToolMessage(
-                        content=text_part, name=function_name, tool_call_id=call_id
+                        content=message.content,
+                        name=message.name,
+                        tool_call_id=message.tool_call_id,
                     )
                 )
         return model_messages

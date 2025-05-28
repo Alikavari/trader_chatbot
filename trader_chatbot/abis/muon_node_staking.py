@@ -44,4 +44,13 @@ abi: list[dict] = [
         "stateMutability": "view",
         "type": "function",
     },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "stakerAddress", "type": "address"}
+        ],
+        "name": "earned",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
 ]
