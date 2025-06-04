@@ -71,7 +71,16 @@ models_dict: dict[str, Any] = {
 }
 
 from databases import Database
-from sqlalchemy import MetaData, Table, Column, String, BigInteger
+from sqlalchemy import (
+    MetaData,
+    Table,
+    Column,
+    String,
+    BigInteger,
+    create_engine,
+    MetaData,
+)
+
 
 DATABASE_URL = "sqlite:///./wallet.db"
 
@@ -91,6 +100,8 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    engine = create_engine(DATABASE_URL)
+    metadata.create_all(engine)
     await database.connect()
     yield
     await database.disconnect()
