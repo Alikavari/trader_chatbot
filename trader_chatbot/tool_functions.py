@@ -24,15 +24,6 @@ realTimeVariables = Literal[
 ]
 
 
-# @tool
-# async def get_variables(
-#     walletAddress: Annotated[str, "User Ethereum wallet address"],
-#     variableNames: Annotated[list[str], "List required variable names"],
-# ):
-#     """
-#     Function for getting MUON variables
-#     """
-#     return [100]
 
 
 @tool
@@ -129,7 +120,7 @@ async def hr_climble_time(
             "User can get their unstake balance right now"
         )
     else:
-        return "User can  get their unstake balance on {user_UTC_min_shift}"
+        return "User can get their unstake balance on {user_UTC_min_shift}"
 
 
 @tool

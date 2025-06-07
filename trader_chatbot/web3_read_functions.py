@@ -2,10 +2,10 @@ from web3 import Web3
 from trader_chatbot.abis.muon_node_staking import abi as node_staking_abi
 from trader_chatbot.abis.muon_node_manager import abi as node_manager_abi
 from trader_chatbot.abis.alice import abi as alice_abi
-from typing import Any, Literal
-
+from typing import Any, Literal, cast
+from dotenv import load_dotenv
+import os
 from datetime import datetime, timedelta, timezone
-import time
 from trader_chatbot.toolkits.web3_convertion import from_bigint_to_decimal
 from trader_chatbot.constants import (
     RPC_URLS,
@@ -28,13 +28,17 @@ NodeInfoKeys = Literal[
     "pendingForClaimAmount",
 ]
 
+load_dotenv()
+chain_id = cast(str, os.getenv("CHAIN_ID"))
+
+print("the chain id: ", chain_id)
 # Contract details
-alice_contract_address = Web3.to_checksum_address(ALICE_CONTRACT_ADDRESS)
-staking_contract_address = Web3.to_checksum_address(STAKING_CONTRACT_ADDRESS)
-manager_contract_address = Web3.to_checksum_address(MANAGER_CONTRACT_ADDRESS)
+alice_contract_address = Web3.to_checksum_address(ALICE_CONTRACT_ADDRESS[chain_id])
+staking_contract_address = Web3.to_checksum_address(STAKING_CONTRACT_ADDRESS[chain_id])
+manager_contract_address = Web3.to_checksum_address(MANAGER_CONTRACT_ADDRESS[chain_id])
 
 # Connect to the Avalanche testnet RPC
-rpc_url = RPC_URLS["avalanche-fuji"]
+rpc_url = RPC_URLS[chain_id]
 
 web3 = Web3(Web3.HTTPProvider(rpc_url))
 
@@ -118,6 +122,8 @@ async def getting_balance(address: str) -> float:
     # Extract balance
     decimal_balance = from_bigint_to_decimal(raw_balance, decimals)
     print("decimal_balance: ", decimal_balance)
+    print("the chain id: ", chain_id)
+
     return decimal_balance
 
 

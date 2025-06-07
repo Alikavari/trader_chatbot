@@ -1,11 +1,20 @@
 from typing import Literal
 
-RpcNames = Literal["avalanche-fuji"]
-RPC_URLS: dict[RpcNames, str] = {
-    "avalanche-fuji": "https://api.avax-test.network/ext/bc/C/rpc"
+RPC_URLS: dict[str, str] = {
+    "43113": "https://api.avax-test.network/ext/bc/C/rpc",
+    "43114": "https://avalanche.drpc.org",
 }
 
-ALICE_CONTRACT_ADDRESS = "0x383FA34836A5F5D3805e77df4f60A62D75034579"
-STAKING_CONTRACT_ADDRESS = "0xcB6F8f4eaA80148d16D08543b84770d71d7Bcd7f"
-MANAGER_CONTRACT_ADDRESS = "0x4b41C5D49Cdd992E7C6b07225731d72233E1ef64"
+ALICE_CONTRACT_ADDRESS = {
+    "43113": "0x383FA34836A5F5D3805e77df4f60A62D75034579",
+    "43114": "0x6B1eCf0c181Afff3d7096B26C3d2bc31F55CEaB9",
+}
+STAKING_CONTRACT_ADDRESS = {
+    "43113": "0xcB6F8f4eaA80148d16D08543b84770d71d7Bcd7f",
+    "43114": "0x46f0Be64a51a3da1bF0627403679CBda2F9aB7af",
+}
+MANAGER_CONTRACT_ADDRESS = {
+    "43113": "0x4b41C5D49Cdd992E7C6b07225731d72233E1ef64",
+    "43114": "0x120E70365586C83F1E7E3607DAD6b109e66090FA",
+}
 PROMPT_DIR = "./prompts/prompt.txt"
