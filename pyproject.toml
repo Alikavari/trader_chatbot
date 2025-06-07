@@ -1,5 +1,5 @@
 [project]
-name            = "trader-chatbot"
+name            = "muon-chatbot"
 version         = "0.1.0"
 readme          = "README.md"
 requires-python = ">=3.12"
@@ -26,9 +26,13 @@ dependencies    = [
     # Add black here
 ]
 
+[project.scripts]
+"muon-chatbot" = "trader_chatbot.main:main"
+
 [tool.rye.scripts]
 dev = "fastapi dev trader_chatbot/main.py"
 main = "fastapi run trader_chatbot/main.py"
+build-docker = "rye build --wheel --clean && docker build . --tag ghcr.io/mohsennz/muon-chatbot-backend:latest"
 
 [build-system]
 requires = ["hatchling", "wheel"]
