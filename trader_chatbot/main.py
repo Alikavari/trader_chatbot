@@ -250,7 +250,9 @@ async def list_models() -> GptModelResponseFormat:
     return GptModelResponseFormat(data=model_descripter_list)
 
 
-if __name__ == "__main__":
+def main():
     import uvicorn
+    uvicorn.run("trader_chatbot.main:app", host="0.0.0.0", port=8000, reload=True)
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+if __name__ == "__main__":
+    main()
