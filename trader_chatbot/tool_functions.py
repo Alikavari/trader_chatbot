@@ -24,8 +24,6 @@ realTimeVariables = Literal[
 ]
 
 
-
-
 @tool
 async def handle_wallet_connect(
     userWalletAddress: str,

@@ -133,7 +133,7 @@ class Agent:
     async def ainvoke(self, messages: List[ModelMessage]):
         # messages = [messages[0], messages[-1]]
         # print("messages:\n", messages)
-        messages = trim_messages(messages)
+        # messages = trim_messages(messages)
         new_messages: List[ResMessageModel] = []
         last_msg_size = len(messages[-1].content)
         if last_msg_size > 200 and isinstance(messages[-1], HumanMessage):
@@ -153,7 +153,7 @@ class Agent:
             return [
                 ResMessageModel(
                     role="assistant",
-                    content="Looks like your wallet isn't connected yet. Please connect your wallet and refresh the page to start chatting with the Muon chatbot.",
+                    content="Looks like your wallet isn't connected yet. Please connect your wallet and refresh the page to start chatting with the Muon Dock3.",
                 )
             ]
 
@@ -169,7 +169,7 @@ class Agent:
             return [
                 ResMessageModel(
                     role="assistant",
-                    content="You have used up all your MUON chatbot tokens",
+                    content="You have used up all your MUON Dock3 tokens",
                 )
             ]
         while True:
