@@ -74,20 +74,24 @@ async def get_variables(
                 variables.append(out["nodeAddress"])
             case "rewardBalance":
                 print("\tcalling reward")
-                reward_balance = getting_reward_balance(userWalletAddress)
+                reward_balance = await getting_reward_balance(userWalletAddress)
                 variables.append(reward_balance)
             case "balance":  # for gettting balance
                 print("\tcalling balance")
+                start = time.time()
                 balance = await getting_balance(userWalletAddress)
-                print("balance: ", balance)
+                stop = time.time()
+                print("balance: ", balance, " elapsed time", stop - start)
                 variables.append(balance)
             case "unstakeBalance":  # for getting requestedUnstakedAmount
                 print("\tcalling unstakeBalance")
-                unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+                unstakeBalance = await getting_requsted_unstaked_amount(
+                    userWalletAddress
+                )
                 variables.append(unstakeBalance)
             case "allownce":  # for getting allowance
                 print("\tcalling allownce")
-                allownce = getting_allowance(userWalletAddress)
+                allownce = await getting_allowance(userWalletAddress)
                 variables.append(allownce)
             case "nodeStatus":
                 print("\tcalling nodeStatus")
@@ -104,12 +108,12 @@ async def get_variables(
 async def hr_climble_time(
     userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int
 ):
-    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    unstakeBalance = await getting_requsted_unstaked_amount(userWalletAddress)
     if unstakeBalance <= 0:
         return "nothing available to claim"
 
     current_epoch = int(time.time())
-    claimable_time, hr_claimable_time = getting_claimable_time(
+    claimable_time, hr_claimable_time = await getting_claimable_time(
         userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
     )
     if current_epoch >= claimable_time:
@@ -127,12 +131,12 @@ async def climable_time(
 ):
     """fuction for getting climalbe time"""
     print("calling climable_time")
-    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    unstakeBalance = await getting_requsted_unstaked_amount(userWalletAddress)
     if unstakeBalance <= 0:
         return "nothing available to claim"
 
     current_epoch = int(time.time())
-    claimable_time, hr_claimable_time = getting_claimable_time(
+    claimable_time, hr_claimable_time = await getting_claimable_time(
         userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
     )
     if current_epoch >= claimable_time:
@@ -162,7 +166,7 @@ async def boost(userWalletAddress: str, amount: int):
     """boosting some amount to node"""
     # return f"boosting failed due to insufficient allowacne first auto-run  the approve {amount} without user permission then call boost"
     print("calling boost")
-    allownce = getting_allowance(userWalletAddress)
+    allownce = await getting_allowance(userWalletAddress)
     balance = await getting_balance(userWalletAddress)
     print("balance:", balance)
     print("amount: ", amount)
@@ -191,9 +195,9 @@ async def approve(userWalletAddress: str, amount: int):
 
 
 @tool
-async def chek_for_adding_node(userWalletAddress: str):
+async def check_for_adding_node(userWalletAddress: str):
     """should run before adding node"""
-    if has_node(userWalletAddress) != 0:
+    if (await has_node(userWalletAddress)) != 0:
         return "Adding node failed—node already set up, cannot add again."
 
 
@@ -208,7 +212,7 @@ async def add_node(
     if amount > balance:
         return "Adding node failed due to insufficient balance", False
 
-    allownce = getting_allowance(userWalletAddress)
+    allownce = await getting_allowance(userWalletAddress)
     if amount > allownce:
         return (
             f"Adding node failed due to low allowance first run approve({amount}) with no user confirmation. Explain why approval is needed before boosting. then boost",
@@ -231,17 +235,19 @@ async def unstake(userWalletAddress: str, amount: int):
 
 
 @tool
-def claim(userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int):
+async def claim(
+    userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: int
+):
     """
     claims unstake balance
     """
     print("calling claim")
-    unstakeBalance = getting_requsted_unstaked_amount(userWalletAddress)
+    unstakeBalance = await getting_requsted_unstaked_amount(userWalletAddress)
     print(unstakeBalance)
     if unstakeBalance <= 0:
         print("the if condition is runed")
         return "Operation failed—nothing available to claim", False
-    claimable_time, hr_claimable_time = getting_claimable_time(
+    claimable_time, hr_claimable_time = await getting_claimable_time(
         userWalletAddress, user_UTC_hour_shift, user_UTC_min_shift
     )
     current_epoch = int(time.time())
@@ -254,12 +260,12 @@ def claim(userWalletAddress: str, user_UTC_hour_shift: int, user_UTC_min_shift: 
 
 
 @tool
-def claim_reward(userWalletAddress: str):
+async def claim_reward(userWalletAddress: str):
     """
     claims reward
     """
     print("calling claiming reward")
-    rewardBalance = getting_reward_balance(userWalletAddress)
+    rewardBalance = await getting_reward_balance(userWalletAddress)
     if rewardBalance <= 0:
         return "Operation failed, no reward to claim.", False
     return "success", True

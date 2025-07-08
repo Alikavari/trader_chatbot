@@ -43,7 +43,7 @@ from trader_chatbot.tool_functions import (
     claim_reward,
     boost,
     handle_wallet_connect,
-    chek_for_adding_node,
+    check_for_adding_node,
 )
 import json
 
@@ -123,7 +123,7 @@ app.add_middleware(
 read_tools = {
     "get_variables": get_variables,
     "climable_time": climable_time,
-    "chek_for_adding_node": chek_for_adding_node,
+    "check_for_adding_node": check_for_adding_node,
     # "handle_wallet_connect": handle_wallet_connect,
 }
 write_tools = {
@@ -252,7 +252,9 @@ async def list_models() -> GptModelResponseFormat:
 
 def main():
     import uvicorn
+
     uvicorn.run("trader_chatbot.main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 if __name__ == "__main__":
     main()

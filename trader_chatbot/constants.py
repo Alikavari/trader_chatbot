@@ -1,7 +1,7 @@
 from typing import Literal
 
 RPC_URLS: dict[str, str] = {
-    "43113": "https://api.avax-test.network/ext/bc/C/rpc",
+    "43113": "https://avalanche-fuji.drpc.org",
     "43114": "https://avalanche.drpc.org",
 }
 

@@ -157,7 +157,7 @@ class Agent:
                 )
             ]
 
-        if (balance < 500) & (has_active_node(user_wallet_address) == False):
+        if (balance < 500) & (await has_active_node(user_wallet_address) == False):
             return [
                 ResMessageModel(
                     role="assistant",
