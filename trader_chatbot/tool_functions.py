@@ -17,10 +17,15 @@ from trader_chatbot.web3_read_functions import (
 realTimeVariables = Literal[
     "stakedAmount",
     "nodePower",
+    "nodeId",
+    "nodeAddress",
     "rewardBalance",
     "balance",
-    "requestedUnstakedAmount",
+    "unstakeRequsetedAmount",
     "allownce",
+    "nodeStatus",
+    "tier",
+    "peerId",
 ]
 
 
@@ -83,8 +88,8 @@ async def get_variables(
                 stop = time.time()
                 print("balance: ", balance, " elapsed time", stop - start)
                 variables.append(balance)
-            case "unstakeBalance":  # for getting requestedUnstakedAmount
-                print("\tcalling unstakeBalance")
+            case "unstakeRequsetAmount":  # for getting requestedUnstakedAmount
+                print("\tcalling unstakeRequset")
                 unstakeBalance = await getting_requsted_unstaked_amount(
                     userWalletAddress
                 )
